@@ -72,9 +72,15 @@ route
   }) // <-- add metadata to the route, which can be used for documentation or other purposes
   .with(SomeMiddleware)
   .with(AnotherMiddleware)
-  .input('json', { body: SomeSchema, headers: AnotherSchema, query: YetAnotherSchema, cookies: CookieSchema }) // <-- specify the input schema for the route, which will be used for validation and type inference (e.g., body is validated against SomeSchema, headers are validated against AnotherSchema, etc.)
-  .output(SomeOutputSchema);
-  .handle( // Handle is the last method in the chain, only catch can come after handle.
+  .input("json", {
+    body: SomeSchema,
+    headers: AnotherSchema,
+    query: YetAnotherSchema,
+    cookies: CookieSchema,
+  }) // <-- specify the input schema for the route, which will be used for validation and type inference (e.g., body is validated against SomeSchema, headers are validated against AnotherSchema, etc.)
+  .output(SomeOutputSchema, [BadRequestError, UnauthorizedError]) // <-- specify the output schema for the route, which will be used for validation and type inference of the response (e.g., the response must match SomeOutputSchema) Error types are only for documentation.
+  .handle(
+    // Handle is the last method in the chain, only catch can come after handle.
     ({
       req, // request object, which can be used to access the raw request data, such as the body, headers, etc.a
       path, // path parameters, which are extracted from the URL based on the route definition (e.g., if the route is defined as /abc/:id, then path.id would contain the value of the id parameter from the URL)
@@ -83,18 +89,18 @@ route
       body, // body of the request, which can be accessed in different formats depending on the content type (e.g., if the content type is application/json, then body would contain the parsed JSON object)
       container, // dependency injection container, which can be used to resolve dependencies and access services (e.g., if you have a service called AbcUseCase registered in the container, you can resolve it with container.get(AbcUseCase) and use it in your route handler)
     }) => {
-    // With output specified the return value of the handle must match, or else it will give type error.
+      // With output specified the return value of the handle must match, or else it will give type error.
       return container.get(AbcUseCase).execute(body.blob);
     },
-  )
+  );
 
 /// Typesafe input variants
 
 // Json body input with schema validation, if no schema is provided, it will be inferred as unknown
-route.post("/abc").input('json', { body: SomeSchema })
-route.post("/abc").input('multipart', { body: SomeSchema })
-route.post("/abc").input('urlencoded', { body: SomeSchema })
-route.post("/abc").handle() // If input is omitted it will be inferred as unknown, so body would be unknown in this case.
+route.post("/abc").input("json", { body: SomeSchema });
+route.post("/abc").input("multipart", { body: SomeSchema });
+route.post("/abc").input("urlencoded", { body: SomeSchema });
+route.post("/abc").handle(); // If input is omitted it will be inferred as unknown, so body would be unknown in this case.
 
 // Type inference
 
@@ -208,7 +214,7 @@ This can be useful for scenarios such as sending large files, streaming data fro
 You can define a streaming route and handler that uses a readable stream to send data to the client in chunks, and manage the streaming connection in a straightforward way.
 
 ```typescript
-route.get("/stream").handle(({ res, ctx }) => {
+route.stream("/stream").handle(({ res, ctx }) => {
   const stream = new ReadableStream({
     start(controller) {
       // This function will be called when the streaming response is initiated
@@ -241,4 +247,53 @@ route.static("/static", {
 });
 ```
 
-#
+# Async Local Storage
+
+`fishenv.http` also includes support for Async Local Storage, allowing you to store and access data that is specific to a particular request or context throughout the lifecycle of that request.
+This can be useful for scenarios such as tracking request-specific data, managing user sessions, or implementing request-scoped dependency injection.
+You can use Async Local Storage to create a context that is accessible in your route handlers and middleware, allowing you to store and retrieve data that is specific to the current request without having to pass it explicitly through function parameters.
+
+# Open API Documentation
+
+`fishenv.http` also includes support for generating OpenAPI documentation for your API, allowing you to easily document your endpoints, request and response schemas, and other details about your API in a standardized format.
+You can define metadata for your routes, such as the title and description, and specify input and output schemas for your routes, which will be used to generate the OpenAPI documentation.
+
+# RPC/Client Generation
+
+`fishenv.http` also includes support for generating RPC clients based on your route definitions, allowing you to easily create clients for your API.
+It should be scoped to a specific HTTP client (fishenv.wrq).
+
+We need to build a client generator that parses the route definitions and generates client code that can be used to make requests to the API endpoints defined in `fishenv.http`.
+
+# Project structure
+
+- core/: Core functionality of the HTTP server, including request handling, routing, middleware, and error handling.
+- ws/: WebSocket support and related functionality.
+- sse/: Server-Sent Events support and related functionality.
+- static/: Static file serving functionality.
+- di/: Dependency injection container and related functionality.
+- openapi/: OpenAPI documentation generation functionality.
+- client-gen/: RPC client generation functionality.
+- utils/: Utility functions and helpers used across the project.
+
+# Footnote
+
+Its important that we dont try to be very generic in regards to allow all forms of setups, it should be somewhat strict and opinionated to keep a clean and maintainable API.
+But we should have all the features to create any type of http server/api without alot of burden on the developer. It should be easy to use, and quick to get started.
+
+The structure of the code should be modular and organized, with clear separation of concerns between different parts of the framework (e.g., routing, middleware, error handling, etc.).
+This is to ensure that the codebase remains maintainable and scalable as the framework evolves and grows over time.
+
+We should also prioritize performance and efficiency in the design and implementation of the framework, to ensure that it can handle a large number of requests and provide a responsive experience for users.
+
+We must use well defined TypeScript types and interfaces throughout the codebase to ensure type safety and improve developer experience when using the framework. This includes defining types for requests, responses, middleware, route handlers, and other components of the framework.
+We must use established standards for HTTP and web development, such as the Fetch API for handling requests and responses, and the OpenAPI specification for documenting APIs. This will help to ensure that the framework is compatible with existing tools and libraries in the ecosystem, and that it follows best practices for web development.
+
+We use the Deno runtime for this project, which provides a secure and modern environment for building web applications and APIs. Deno's built-in support for TypeScript, its standard library, and its focus on security and performance make it an ideal choice for this project.
+We use DENO 2.7+ to take advantage of the latest features.
+
+- https://docs.deno.com/api/deno/~/Deno.serve
+- https://docs.deno.com/examples/http_server_files/
+- https://docs.deno.com/examples/http_server_streaming/
+- https://docs.deno.com/examples/http_server_websocket/
+- https://docs.deno.com/examples/file_server_tutorial/

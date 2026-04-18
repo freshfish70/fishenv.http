@@ -1,0 +1,7 @@
+{
+  "workspace": ["./core", "./ws", "./sse", "./static", "./openapi", "./client-gen", "./examples"],
+  "tasks": {
+    "test": "deno test --allow-read --allow-net --allow-env",
+    "check": "deno check core/mod.ts"
+  }
+}
