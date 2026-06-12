@@ -136,37 +136,79 @@ export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
 
   get<P extends string>(
     path: P,
-  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
+  ): RouteBuilder<
+    Ctx,
+    Record<never, never>,
+    "none",
+    InputOptions<"none">,
+    BasePathParams<P>,
+    undefined
+  > {
     return createRouteBuilder<Ctx, P>(this, "GET", path);
   }
 
   post<P extends string>(
     path: P,
-  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
+  ): RouteBuilder<
+    Ctx,
+    Record<never, never>,
+    "none",
+    InputOptions<"none">,
+    BasePathParams<P>,
+    undefined
+  > {
     return createRouteBuilder<Ctx, P>(this, "POST", path);
   }
 
   put<P extends string>(
     path: P,
-  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
+  ): RouteBuilder<
+    Ctx,
+    Record<never, never>,
+    "none",
+    InputOptions<"none">,
+    BasePathParams<P>,
+    undefined
+  > {
     return createRouteBuilder<Ctx, P>(this, "PUT", path);
   }
 
   patch<P extends string>(
     path: P,
-  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
+  ): RouteBuilder<
+    Ctx,
+    Record<never, never>,
+    "none",
+    InputOptions<"none">,
+    BasePathParams<P>,
+    undefined
+  > {
     return createRouteBuilder<Ctx, P>(this, "PATCH", path);
   }
 
   delete<P extends string>(
     path: P,
-  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
+  ): RouteBuilder<
+    Ctx,
+    Record<never, never>,
+    "none",
+    InputOptions<"none">,
+    BasePathParams<P>,
+    undefined
+  > {
     return createRouteBuilder<Ctx, P>(this, "DELETE", path);
   }
 
   options<P extends string>(
     path: P,
-  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
+  ): RouteBuilder<
+    Ctx,
+    Record<never, never>,
+    "none",
+    InputOptions<"none">,
+    BasePathParams<P>,
+    undefined
+  > {
     return createRouteBuilder<Ctx, P>(this, "OPTIONS", path);
   }
 

@@ -1,6 +1,5 @@
 {
-  "name": "@fishenv/http",
-  "version": "0.1.0",
+  "name": "@fishenv/http/core",
   "exports": {
     ".": "./mod.ts",
     "./types": "./types.ts",
