@@ -1,6 +1,7 @@
 {
   "name": "@fishenv/http",
   "version": "0.1.0",
+  "license": "AGPL-3.0",
   // "workspace": ["./core", "./ws", "./sse", "./static", "./openapi", "./client-gen", "./examples"],
   "tasks": {
     "test": "deno test --allow-read --allow-net --allow-env",
