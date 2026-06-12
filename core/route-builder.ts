@@ -58,8 +58,8 @@ export class FinishedRoute {
  * Methods that only add runtime data (.meta(), .intercept()) mutate and return `this`.
  */
 export class RouteBuilder<
-  RouterCtx extends object,
-  RouteCtx extends object,
+  RouterCtx extends Record<string, unknown>,
+  RouteCtx extends Record<string, unknown>,
   K extends InputKind = "none",
   O extends InputOptions<K> = InputOptions<K>,
   Params extends Record<string, unknown> = Record<string, unknown>,
@@ -272,7 +272,7 @@ export class RouteBuilder<
  * Used internally by the Router class method helpers (.get(), .post(), etc.)
  */
 export function createRouteBuilder<
-  RouterCtx extends object,
+  RouterCtx extends Record<string, unknown>,
   P extends string,
 >(
   router: RouterRef,

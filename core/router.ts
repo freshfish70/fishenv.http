@@ -42,7 +42,7 @@ interface RouterStore {
  * Route methods (.get, .post, etc.) return a RouteBuilder chain.
  * Call `.build()` before `.fetch` or `serve()`.
  */
-export class Router<Ctx extends object = Record<never, never>>
+export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
   implements RouterRef {
   readonly #prefix: string;
   readonly #middlewares: MiddlewareFn<
