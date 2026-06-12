@@ -1,7 +1,7 @@
 {
   "name": "@fishenv/http",
   "version": "0.0.1",
-  "license": "AGPL-3.0",
+  "license": "AGPL-3.0-only",
   "tasks": {
     "test": "deno test --allow-read --allow-net --allow-env",
     "check": "deno check core/mod.ts"
