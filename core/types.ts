@@ -51,9 +51,9 @@ export type InferHeaders<O extends InputOptions<InputKind>> =
   O["headers"] extends AnySchema ? InferOutput<O["headers"]>
     : Record<string, string>;
 
-export type InferQuery<O extends InputOptions<InputKind>> =
-  O["query"] extends AnySchema ? InferOutput<O["query"]>
-    : Record<string, string | string[]>;
+export type InferQuery<O extends InputOptions<InputKind>> = O["query"] extends
+  AnySchema ? InferOutput<O["query"]>
+  : Record<string, string | string[]>;
 
 export type InferCookies<O extends InputOptions<InputKind>> =
   O["cookies"] extends AnySchema ? InferOutput<O["cookies"]>
@@ -70,9 +70,9 @@ export type ExtractParams<P extends string> = P extends
     ? Param extends `${infer Name}?` ? Name : Param
   : never;
 
-export type BasePathParams<P extends string> =
-  & { [K in ExtractParams<P>]: string }
-  & (P extends `${string}*` ? { "*": string } : unknown);
+export type BasePathParams<P extends string> = {
+  [K in ExtractParams<P>]: string;
+};
 
 export type MergeParam<
   Base extends Record<string, unknown>,
@@ -85,8 +85,8 @@ export type MergeParam<
 // ---------------------------------------------------------------------------
 
 export type MiddlewareFn<
-  In extends Record<string, unknown>,
-  Out extends Record<string, unknown>,
+  In extends object,
+  Out extends object,
 > = (ctx: In & { req: Request }) => Promise<Out> | Out;
 
 export type MergeCtx<

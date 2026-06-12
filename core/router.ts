@@ -6,6 +6,7 @@ import type {
   NotFoundHandler,
   RouteDefinition,
 } from "./types.ts";
+import { buildCors, type CompiledCors, type CorsOptions } from "./cors.ts";
 import { createRouteBuilder, type RouterRef } from "./route-builder.ts";
 import { Matcher } from "./matcher.ts";
 import { dispatch } from "./compose.ts";
@@ -17,7 +18,9 @@ import {
 
 const stubContainer: DIContainer = {
   get() {
-    throw new Error("No DI container configured. Pass one via serve() options.");
+    throw new Error(
+      "No DI container configured. Pass one via serve() options.",
+    );
   },
 };
 
@@ -39,7 +42,7 @@ interface RouterStore {
  * Route methods (.get, .post, etc.) return a RouteBuilder chain.
  * Call `.build()` before `.fetch` or `serve()`.
  */
-export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
+export class Router<Ctx extends object = Record<never, never>>
   implements RouterRef {
   readonly #prefix: string;
   readonly #middlewares: MiddlewareFn<
@@ -49,6 +52,7 @@ export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
   readonly #store: RouterStore;
   #errorHandler?: ErrorHandlerFn;
   #notFoundHandler?: NotFoundHandler;
+  #cors: CompiledCors | null = null;
   #built = false;
   #matcher: Matcher | null = null;
   #container: DIContainer = stubContainer;
@@ -150,6 +154,15 @@ export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
 
   // ── Error / not-found ────────────────────────────────────────────────
 
+  // ── CORS ─────────────────────────────────────────────────────────────
+
+  cors(options: CorsOptions): this {
+    this.#cors = buildCors(options);
+    return this;
+  }
+
+  // ── Error / not-found ────────────────────────────────────────────────
+
   onError(handler: ErrorHandlerFn): this {
     this.#errorHandler = handler;
     return this;
@@ -199,6 +212,12 @@ export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
     const url = new URL(req.url);
     const method = req.method.toUpperCase();
     const isHead = method === "HEAD";
+    console.log(`Incoming request: ${method} ${url.pathname}`);
+
+    // CORS preflight — short-circuit before route matching
+    if (method === "OPTIONS" && this.#cors) {
+      return this.#cors.preflight(req);
+    }
 
     // Try exact method match, then HEAD→GET fallback
     let matched = this.#matcher.match(method, url.pathname);
@@ -217,9 +236,10 @@ export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
 
     // 405 — path matched but method didn't
     if (matched.allowedMethods) {
-      const allowed = isHead && !matched.allowedMethods.includes("HEAD" as HttpMethod)
-        ? [...matched.allowedMethods, "HEAD" as HttpMethod]
-        : matched.allowedMethods;
+      const allowed =
+        isHead && !matched.allowedMethods.includes("HEAD" as HttpMethod)
+          ? [...matched.allowedMethods, "HEAD" as HttpMethod]
+          : matched.allowedMethods;
       return defaultMethodNotAllowedHandler(req, allowed);
     }
 
@@ -232,13 +252,18 @@ export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
       errorHandlers.push(this.#errorHandler);
     }
 
-    const response = await dispatch(
+    let response = await dispatch(
       req,
       matched.definition,
       matched.params,
       this.#container,
       errorHandlers,
     );
+
+    // Inject CORS headers on every response
+    if (this.#cors) {
+      response = this.#cors.applyTo(req, response);
+    }
 
     // HEAD: strip body
     if (isHead) {

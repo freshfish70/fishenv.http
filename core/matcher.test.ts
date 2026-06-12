@@ -69,14 +69,38 @@ Deno.test("Matcher — multiple params", () => {
   assertEquals(result?.params, { id: "1", pid: "2" });
 });
 
-Deno.test("Matcher — wildcard", () => {
+Deno.test("Matcher — segment wildcard", () => {
   const m = new Matcher();
   const def = stubRoute({ path: "/files/*" });
   m.add("GET", "/files/*", def);
   m.compile();
 
-  const result = m.match("GET", "/files/a/b/c");
-  assertEquals(result?.params, { "*": "a/b/c" });
+  assertEquals(m.match("GET", "/files/a")?.definition, def);
+  assertEquals(m.match("GET", "/files/a")?.params, {});
+  assertEquals(m.match("GET", "/files/a/b/c"), null);
+});
+
+Deno.test("Matcher — deep wildcard", () => {
+  const m = new Matcher();
+  const def = stubRoute({ path: "/files/**" });
+  m.add("GET", "/files/**", def);
+  m.compile();
+
+  assertEquals(m.match("GET", "/files")?.definition, def);
+  assertEquals(m.match("GET", "/files/a/b/c")?.definition, def);
+  assertEquals(m.match("GET", "/files/a/b/c")?.params, {});
+});
+
+Deno.test("Matcher — glob segment with alternation", () => {
+  const m = new Matcher();
+  const def = stubRoute({ path: "/assets/*.{css,js}" });
+  m.add("GET", "/assets/*.{css,js}", def);
+  m.compile();
+
+  assertEquals(m.match("GET", "/assets/app.css")?.definition, def);
+  assertEquals(m.match("GET", "/assets/app.js")?.definition, def);
+  assertEquals(m.match("GET", "/assets/app.png"), null);
+  assertEquals(m.match("GET", "/assets/nested/app.css"), null);
 });
 
 Deno.test("Matcher — optional param present", () => {
@@ -134,12 +158,35 @@ Deno.test("Matcher — static route takes priority over dynamic", () => {
 Deno.test("Matcher — more specific dynamic route wins", () => {
   const m = new Matcher();
   const specific = stubRoute({ path: "/a/:x/b/:y" });
-  const wildcard = stubRoute({ path: "/a/*" });
-  m.add("GET", "/a/*", wildcard);
+  const wildcard = stubRoute({ path: "/a/**" });
+  m.add("GET", "/a/**", wildcard);
   m.add("GET", "/a/:x/b/:y", specific);
   m.compile();
 
   assertEquals(m.match("GET", "/a/1/b/2")?.definition, specific);
+});
+
+Deno.test("Matcher — param route beats segment glob", () => {
+  const m = new Matcher();
+  const param = stubRoute({ path: "/assets/:file" });
+  const glob = stubRoute({ path: "/assets/*" });
+  m.add("GET", "/assets/*", glob);
+  m.add("GET", "/assets/:file", param);
+  m.compile();
+
+  assertEquals(m.match("GET", "/assets/app.css")?.definition, param);
+});
+
+Deno.test("Matcher — segment glob beats deep wildcard", () => {
+  const m = new Matcher();
+  const segment = stubRoute({ path: "/assets/*.{css,js}" });
+  const deep = stubRoute({ path: "/assets/**" });
+  m.add("GET", "/assets/**", deep);
+  m.add("GET", "/assets/*.{css,js}", segment);
+  m.compile();
+
+  assertEquals(m.match("GET", "/assets/app.css")?.definition, segment);
+  assertEquals(m.match("GET", "/assets/nested/app.css")?.definition, deep);
 });
 
 // ---------------------------------------------------------------------------
@@ -163,6 +210,19 @@ Deno.test("Matcher — 405 with multiple allowed methods", () => {
 
   const result = m.match("DELETE", "/users");
   assertEquals(result?.allowedMethods?.sort(), ["GET", "POST"]);
+});
+
+Deno.test("Matcher — 405 with glob path", () => {
+  const m = new Matcher();
+  m.add(
+    "POST",
+    "/assets/*.{css,js}",
+    stubRoute({ method: "POST", path: "/assets/*.{css,js}" }),
+  );
+  m.compile();
+
+  const result = m.match("GET", "/assets/app.css");
+  assertEquals(result?.allowedMethods, ["POST"]);
 });
 
 // ---------------------------------------------------------------------------

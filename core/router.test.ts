@@ -49,9 +49,22 @@ describe("Router routing", () => {
 
   it("all HTTP method helpers work", async () => {
     const app = r();
-    const methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] as const;
+    const methods = [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ] as const;
     for (const m of methods) {
-      const methodLower = m.toLowerCase() as "get" | "post" | "put" | "patch" | "delete" | "options";
+      const methodLower = m.toLowerCase() as
+        | "get"
+        | "post"
+        | "put"
+        | "patch"
+        | "delete"
+        | "options";
       app[methodLower](`/${m}`).handle(() => new Response(m));
     }
     app.build();
@@ -121,9 +134,11 @@ describe("Router 404 / 405", () => {
 describe("Router HEAD fallback", () => {
   it("HEAD returns GET response with no body", async () => {
     const app = r();
-    app.get("/data").handle(() => new Response("payload", {
-      headers: { "x-custom": "yes" },
-    }));
+    app.get("/data").handle(() =>
+      new Response("payload", {
+        headers: { "x-custom": "yes" },
+      })
+    );
     app.build();
 
     const res = await app.fetch(req("/data", "HEAD"));
@@ -151,15 +166,13 @@ describe("Router middleware", () => {
   });
 
   it("chained .use() accumulates context", async () => {
-    const addA: MiddlewareFn<Record<string, unknown>, { a: number }> =
-      () => ({ a: 1 });
-    const addB: MiddlewareFn<{ a: number }, { b: number }> =
-      () => ({ b: 2 });
+    const addA: MiddlewareFn<Record<string, unknown>, { a: number }> = () => ({
+      a: 1,
+    });
+    const addB: MiddlewareFn<{ a: number }, { b: number }> = () => ({ b: 2 });
 
     const app = r().use(addA).use(addB);
-    app.get("/ab").handle(({ ctx }) =>
-      Response.json(ctx)
-    );
+    app.get("/ab").handle(({ ctx }) => Response.json(ctx));
     app.build();
 
     const res = await app.fetch(req("/ab"));

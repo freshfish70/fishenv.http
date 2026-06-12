@@ -5,7 +5,10 @@ export interface TodoRepo {
   findAll(): Promise<Todo[]>;
   findById(id: string): Promise<Todo | null>;
   create(title: string): Promise<Todo>;
-  update(id: string, patch: Partial<Pick<Todo, "title" | "completed">>): Promise<Todo | null>;
+  update(
+    id: string,
+    patch: Partial<Pick<Todo, "title" | "completed">>,
+  ): Promise<Todo | null>;
   remove(id: string): Promise<boolean>;
 }
 
@@ -32,7 +35,10 @@ export class InMemoryTodoRepo implements TodoRepo {
     return todo;
   }
 
-  async update(id: string, patch: Partial<Pick<Todo, "title" | "completed">>): Promise<Todo | null> {
+  async update(
+    id: string,
+    patch: Partial<Pick<Todo, "title" | "completed">>,
+  ): Promise<Todo | null> {
     const todo = this.#todos.get(id);
     if (!todo) return null;
     const updated = { ...todo, ...patch };

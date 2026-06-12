@@ -46,7 +46,10 @@ app.post("/users")
 
 const PaginationSchema = v.object({
   page: v.optional(v.pipe(v.string(), v.transform(Number), v.minValue(1)), "1"),
-  limit: v.optional(v.pipe(v.string(), v.transform(Number), v.minValue(1), v.maxValue(100)), "20"),
+  limit: v.optional(
+    v.pipe(v.string(), v.transform(Number), v.minValue(1), v.maxValue(100)),
+    "20",
+  ),
 });
 
 app.get("/users")
@@ -88,10 +91,12 @@ const UserOutputSchema = v.object({
 app.get("/users/:id/profile")
   .param("id", NumericId)
   .output(UserOutputSchema)
-  .handle(({ path }) =>
-    // Can return a plain object — coerced to Response.json() automatically
-    ({ id: path.id, name: `User ${path.id}`, email: `user${path.id}@example.com` })
-  );
+  .handle(({ path }) => // Can return a plain object — coerced to Response.json() automatically
+  ({
+    id: path.id,
+    name: `User ${path.id}`,
+    email: `user${path.id}@example.com`,
+  }));
 
 serve(app, {
   port: 3003,

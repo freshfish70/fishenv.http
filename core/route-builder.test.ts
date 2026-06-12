@@ -2,9 +2,9 @@ import { assertEquals } from "@std/assert";
 import { assertType, type IsExact } from "@std/testing/types";
 import {
   createRouteBuilder,
-  type RouterRef,
-  RouteBuilder,
   FinishedRoute,
+  RouteBuilder,
+  type RouterRef,
 } from "./route-builder.ts";
 import type {
   AnySchema,

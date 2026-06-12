@@ -1,6 +1,6 @@
 import * as v from "valibot";
 import type { AnySchema } from "./types.ts";
-import { type ValidationField, ValidationError } from "./error.ts";
+import { ValidationError, type ValidationField } from "./error.ts";
 
 /**
  * Validate a single field value against a Valibot schema.

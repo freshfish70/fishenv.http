@@ -42,7 +42,11 @@ export {
 } from "./compose.ts";
 
 // Route Builder
-export { createRouteBuilder, FinishedRoute, RouteBuilder } from "./route-builder.ts";
+export {
+  createRouteBuilder,
+  FinishedRoute,
+  RouteBuilder,
+} from "./route-builder.ts";
 export type { RouterRef } from "./route-builder.ts";
 
 // Router
@@ -81,9 +85,9 @@ export type { ParsedInput } from "./request.ts";
 // Validation
 export { validateField, validatePathParams } from "./validation.ts";
 
+// CORS
+export { buildCors } from "./cors.ts";
+export type { CompiledCors, CorsOptions } from "./cors.ts";
+
 // URL utilities
-export {
-  buildRouteRegex,
-  extractParamNames,
-  mergePaths,
-} from "./utils/url.ts";
+export { buildRouteRegex, extractParamNames, mergePaths } from "./utils/url.ts";

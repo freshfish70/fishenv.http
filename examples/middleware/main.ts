@@ -14,7 +14,7 @@
  *   curl localhost:3002/api/admin/users -H "Authorization: Bearer tok_alice"
  *   curl -i localhost:3002/api/slow -H "Authorization: Bearer tok_alice"
  */
-import { r, serve, UnauthorizedError, ForbiddenError } from "@fishenv/http";
+import { ForbiddenError, r, serve, UnauthorizedError } from "@fishenv/http";
 import type { MiddlewareFn } from "@fishenv/http";
 
 // ── Middleware definitions ──────────────────────────────────────────────
@@ -31,7 +31,7 @@ const Auth: MiddlewareFn<
   { user: { id: string; name: string } }
 > = ({ req }) => {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  console.log(req.headers)
+  console.log(req.headers);
   if (!token) throw new UnauthorizedError();
   // In production you'd verify the JWT / lookup the session here
   return { user: { id: "u_1", name: "Alice" } };
@@ -87,7 +87,9 @@ admin.get("/users").handle(({ ctx }) =>
 
 authed.get("/slow")
   .intercept(
-    ({ state }) => { state.start = performance.now(); },
+    ({ state }) => {
+      state.start = performance.now();
+    },
     ({ response, state }) => {
       const ms = (performance.now() - (state.start as number)).toFixed(2);
       response.headers.set("x-response-time", `${ms}ms`);

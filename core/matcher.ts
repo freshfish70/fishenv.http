@@ -19,13 +19,19 @@ export interface RouterMatcher {
   compile(): void;
 }
 
-/** Score: more static segments = higher, wildcards = lower */
+/** Score: more static segments = higher, broad globs = lower */
 function specificity(path: string): number {
-  return path.split("/").reduce(
-    (score, seg) =>
-      score + (seg.startsWith(":") ? 1 : seg === "*" ? 0 : 2),
-    0,
-  );
+  return path.split("/").reduce((score, seg) => {
+    if (!seg) return score;
+    if (seg === "**") return score + 0;
+    if (seg.includes("*") || seg.includes("{")) return score + 1;
+    if (seg.startsWith(":")) return score + 2;
+    return score + 3;
+  }, 0);
+}
+
+function hasPatternSyntax(path: string): boolean {
+  return path.includes(":") || path.includes("*") || path.includes("{");
 }
 
 export class Matcher implements RouterMatcher {
@@ -47,7 +53,7 @@ export class Matcher implements RouterMatcher {
 
   compile(): void {
     for (const { method, path, def } of this.#rawRoutes) {
-      if (!path.includes(":") && !path.includes("*")) {
+      if (!hasPatternSyntax(path)) {
         // Static path
         if (!this.#staticRoutes.has(method)) {
           this.#staticRoutes.set(method, new Map());
@@ -65,7 +71,9 @@ export class Matcher implements RouterMatcher {
     }
     // Sort dynamic routes: higher specificity first
     for (const list of this.#dynamicRoutes.values()) {
-      list.sort((a, b) => specificity(b.definition.path) - specificity(a.definition.path));
+      list.sort((a, b) =>
+        specificity(b.definition.path) - specificity(a.definition.path)
+      );
     }
     this.#compiled = true;
   }

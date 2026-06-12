@@ -58,8 +58,8 @@ export class FinishedRoute {
  * Methods that only add runtime data (.meta(), .intercept()) mutate and return `this`.
  */
 export class RouteBuilder<
-  RouterCtx extends Record<string, unknown>,
-  RouteCtx extends Record<string, unknown>,
+  RouterCtx extends object,
+  RouteCtx extends object,
   K extends InputKind = "none",
   O extends InputOptions<K> = InputOptions<K>,
   Params extends Record<string, unknown> = Record<string, unknown>,
@@ -170,7 +170,14 @@ export class RouteBuilder<
   input<NK extends InputKind, NO extends InputOptions<NK>>(
     kind: NK,
     options?: NO,
-  ): RouteBuilder<RouterCtx, RouteCtx, NK, NO extends InputOptions<NK> ? NO : InputOptions<NK>, Params, Output> {
+  ): RouteBuilder<
+    RouterCtx,
+    RouteCtx,
+    NK,
+    NO extends InputOptions<NK> ? NO : InputOptions<NK>,
+    Params,
+    Output
+  > {
     return new RouteBuilder(
       this.#router,
       this.#method,
@@ -183,7 +190,14 @@ export class RouteBuilder<
       this.#errorTypes ? [...this.#errorTypes] : undefined,
       this.#meta ? { ...this.#meta } : undefined,
       [...this.#interceptors],
-    ) as RouteBuilder<RouterCtx, RouteCtx, NK, NO extends InputOptions<NK> ? NO : InputOptions<NK>, Params, Output>;
+    ) as RouteBuilder<
+      RouterCtx,
+      RouteCtx,
+      NK,
+      NO extends InputOptions<NK> ? NO : InputOptions<NK>,
+      Params,
+      Output
+    >;
   }
 
   /** Set output schema + optional error types — returns new builder */
@@ -212,8 +226,9 @@ export class RouteBuilder<
     after?: AfterInterceptorFn<RouterCtx & RouteCtx>,
   ): this {
     this.#interceptors.push({
-      before: before as BeforeInterceptorFn<Record<string, unknown>> |
-        undefined,
+      before: before as
+        | BeforeInterceptorFn<Record<string, unknown>>
+        | undefined,
       after: after as AfterInterceptorFn<Record<string, unknown>> | undefined,
     });
     return this;
@@ -257,13 +272,20 @@ export class RouteBuilder<
  * Used internally by the Router class method helpers (.get(), .post(), etc.)
  */
 export function createRouteBuilder<
-  RouterCtx extends Record<string, unknown>,
+  RouterCtx extends object,
   P extends string,
 >(
   router: RouterRef,
   method: HttpMethod,
   path: P,
-): RouteBuilder<RouterCtx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
+): RouteBuilder<
+  RouterCtx,
+  Record<never, never>,
+  "none",
+  InputOptions<"none">,
+  BasePathParams<P>,
+  undefined
+> {
   return new RouteBuilder(
     router,
     method,

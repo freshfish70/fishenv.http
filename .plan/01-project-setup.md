@@ -1,10 +1,15 @@
 # 01 — Project Setup
 
 ## Decisions
-- **Validation**: Valibot v1. Core types designed for future Standard Schema compatibility.
-- **Module identity**: Single JSR package `@fishenv/http` with sub-path exports (`/ws`, `/sse`, `/static`, `/openapi`, `/client-gen`).
-- **Deno target**: 2.7+ — uses `Deno.serve` with `AbortSignal`, `Deno.upgradeWebSocket`.
-- **DI**: Skipped for v1. Core defines a minimal `DIContainer` interface; no implementation.
+
+- **Validation**: Valibot v1. Core types designed for future Standard Schema
+  compatibility.
+- **Module identity**: Single JSR package `@fishenv/http` with sub-path exports
+  (`/ws`, `/sse`, `/static`, `/openapi`, `/client-gen`).
+- **Deno target**: 2.7+ — uses `Deno.serve` with `AbortSignal`,
+  `Deno.upgradeWebSocket`.
+- **DI**: Skipped for v1. Core defines a minimal `DIContainer` interface; no
+  implementation.
 
 ## Directory Structure
 
@@ -44,7 +49,14 @@ fishenv.api/
 
 ```json
 {
-  "workspace": ["./core", "./ws", "./sse", "./static", "./openapi", "./client-gen"],
+  "workspace": [
+    "./core",
+    "./ws",
+    "./sse",
+    "./static",
+    "./openapi",
+    "./client-gen"
+  ],
   "tasks": {
     "test": "deno test --allow-read --allow-net --allow-env",
     "check": "deno check core/mod.ts"
@@ -77,6 +89,7 @@ fishenv.api/
 ```
 
 ## Deliverables
+
 - [ ] Root `deno.json` workspace config
 - [ ] One `deno.json` per sub-module with correct exports
 - [ ] Empty `mod.ts` stubs in each sub-module

@@ -1,13 +1,18 @@
 # 06 — Router Class & `r()` / `router()` Factories
 
 ## Decisions
-- **Naming**: `r()` is the primary export; `router()` is an alias. Both exported from `core/mod.ts`.
-- **Immutability**: `.use()` returns a **new** Router instance with updated `Ctx` type.
-- **`build()`**: Must be called explicitly before `serve()`. Validates paths at compile time.
+
+- **Naming**: `r()` is the primary export; `router()` is an alias. Both exported
+  from `core/mod.ts`.
+- **Immutability**: `.use()` returns a **new** Router instance with updated
+  `Ctx` type.
+- **`build()`**: Must be called explicitly before `serve()`. Validates paths at
+  compile time.
 - **Multiple `serve()` calls**: Allowed — `build()` is idempotent.
 - **Container**: Passed to `serve({ container })`, not bound to the Router.
 - **HEAD**: Auto-handled from GET (matcher falls back, dispatch strips body).
-- **Testing**: Router exposes a `.fetch` property for test use without binding a port.
+- **Testing**: Router exposes a `.fetch` property for test use without binding a
+  port.
 
 ## API
 
@@ -91,12 +96,13 @@ class Router<Ctx extends Record<string, unknown> = {}> {
 
 ## Route Collection
 
-When `build()` is called, it walks the entire router tree and resolves each route:
+When `build()` is called, it walks the entire router tree and resolves each
+route:
 
 ```typescript
 interface ResolvedRoute extends RouteDefinition {
-  middlewares: MiddlewareFn<any, any>[]   // router chain + route chain, flattened
-  errorHandlers: ErrorHandlerFn[]         // route catch → router onError → ... → default
+  middlewares: MiddlewareFn<any, any>[]; // router chain + route chain, flattened
+  errorHandlers: ErrorHandlerFn[]; // route catch → router onError → ... → default
 }
 
 // Inheritance:
@@ -111,29 +117,33 @@ interface ResolvedRoute extends RouteDefinition {
 
 ```typescript
 interface ServeOptions {
-  port?: number              // default: 8000
-  hostname?: string          // default: "0.0.0.0"
-  container?: DIContainer    // injected per-request into handler args
-  development?: boolean      // include stack traces in error responses (default: false)
-  logger?: Logger            // structured logger; falls back to console.error
-  useAsyncLocalStorage?: boolean  // default: false
-  onListen?: (addr: { hostname: string; port: number }) => void
-  signal?: AbortSignal       // for graceful shutdown (Deno.serve native support)
+  port?: number; // default: 8000
+  hostname?: string; // default: "0.0.0.0"
+  container?: DIContainer; // injected per-request into handler args
+  development?: boolean; // include stack traces in error responses (default: false)
+  logger?: Logger; // structured logger; falls back to console.error
+  useAsyncLocalStorage?: boolean; // default: false
+  onListen?: (addr: { hostname: string; port: number }) => void;
+  signal?: AbortSignal; // for graceful shutdown (Deno.serve native support)
 }
 
 interface Logger {
-  error(message: string, ...args: unknown[]): void
-  warn(message: string, ...args: unknown[]): void
-  info(message: string, ...args: unknown[]): void
+  error(message: string, ...args: unknown[]): void;
+  warn(message: string, ...args: unknown[]): void;
+  info(message: string, ...args: unknown[]): void;
 }
 
 function serve(router: Router<any>, options?: ServeOptions): Deno.HttpServer {
-  router.build()   // idempotent — safe to call if already built
+  router.build(); // idempotent — safe to call if already built
   return Deno.serve(
-    { port: options?.port ?? 8000, hostname: options?.hostname ?? "0.0.0.0",
-      signal: options?.signal, onListen: options?.onListen },
-    (req) => router.fetch(req),  // .fetch is the compiled handler
-  )
+    {
+      port: options?.port ?? 8000,
+      hostname: options?.hostname ?? "0.0.0.0",
+      signal: options?.signal,
+      onListen: options?.onListen,
+    },
+    (req) => router.fetch(req), // .fetch is the compiled handler
+  );
 }
 ```
 
@@ -144,43 +154,53 @@ function serve(router: Router<any>, options?: ServeOptions): Deno.HttpServer {
 ```typescript
 // After build():
 router.fetch = async (req: Request): Promise<Response> => {
-  const url = new URL(req.url)
-  const method = req.method.toUpperCase()
+  const url = new URL(req.url);
+  const method = req.method.toUpperCase();
 
   // HEAD fallback handled inside dispatch
-  const matched = matcher.match(method === "HEAD" ? "HEAD" : method, url.pathname)
-    ?? (method === "HEAD" ? matcher.match("GET", url.pathname) : null)
+  const matched =
+    matcher.match(method === "HEAD" ? "HEAD" : method, url.pathname) ??
+      (method === "HEAD" ? matcher.match("GET", url.pathname) : null);
 
   if (!matched) {
     if (matched?.allowedMethods) {
       return new Response(null, {
         status: 405,
-        headers: { Allow: matched.allowedMethods.join(", ") }
-      })
+        headers: { Allow: matched.allowedMethods.join(", ") },
+      });
     }
-    return notFoundHandler(req)
+    return notFoundHandler(req);
   }
 
-  const isHead = method === "HEAD"
-  const response = await dispatch(req, matched, container, errorHandlers)
+  const isHead = method === "HEAD";
+  const response = await dispatch(req, matched, container, errorHandlers);
 
-  if (isHead) return new Response(null, { status: response.status, headers: response.headers })
-  return response
-}
+  if (isHead) {
+    return new Response(null, {
+      status: response.status,
+      headers: response.headers,
+    });
+  }
+  return response;
+};
 ```
 
 ## `r()` and `router()` Factories
 
 ```typescript
-function r<Ctx extends Record<string, unknown> = {}>(opts?: { prefix?: string }): Router<Ctx> {
-  return new Router(opts)
+function r<Ctx extends Record<string, unknown> = {}>(
+  opts?: { prefix?: string },
+): Router<Ctx> {
+  return new Router(opts);
 }
 
-const router = r   // alias
-export { r, router, serve }
+const router = r; // alias
+export { r, router, serve };
 ```
 
 ## Files to Create
+
 - `core/router.ts` — `Router` class
 - `core/mod.ts` — exports `r`, `router`, `serve`, re-exports types
-- `core/router.test.ts` — integration tests: middleware inheritance, sub-routers, HEAD fallback, error chain, `.fetch` for testing
+- `core/router.test.ts` — integration tests: middleware inheritance,
+  sub-routers, HEAD fallback, error chain, `.fetch` for testing

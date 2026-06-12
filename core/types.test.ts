@@ -1,21 +1,14 @@
 import { assertType, type IsExact } from "@std/testing/types";
 import type {
-  AnySchema,
   BasePathParams,
   ExtractParams,
-  HandlerArgs,
-  HandlerFn,
   InferBody,
-  InferCookies,
-  InferHeaders,
-  InferQuery,
   InputKind,
   InputOptions,
   MergeCtx,
   MergeParam,
   ValibotSchema,
 } from "./types.ts";
-import type * as v from "valibot";
 
 // ---------------------------------------------------------------------------
 // ExtractParams
@@ -46,6 +39,15 @@ Deno.test("ExtractParams — mixed required and optional", () => {
   assertType<IsExact<R, "x" | "y">>(true);
 });
 
+Deno.test("ExtractParams — globs do not create params", () => {
+  type R1 = ExtractParams<"/files/*">;
+  type R2 = ExtractParams<"/files/**">;
+  type R3 = ExtractParams<"/assets/*.{css,js}">;
+  assertType<IsExact<R1, never>>(true);
+  assertType<IsExact<R2, never>>(true);
+  assertType<IsExact<R3, never>>(true);
+});
+
 // ---------------------------------------------------------------------------
 // BasePathParams
 // ---------------------------------------------------------------------------
@@ -55,17 +57,16 @@ Deno.test("BasePathParams — params are strings", () => {
   assertType<IsExact<R, { id: string }>>(true);
 });
 
-Deno.test("BasePathParams — wildcard adds * key", () => {
-  type R = BasePathParams<"/files/*">;
-  // Should have { "*": string }
-  type HasWildcard = R extends { "*": string } ? true : false;
-  assertType<IsExact<HasWildcard, true>>(true);
+Deno.test("BasePathParams — globs do not add params", () => {
+  type R1 = BasePathParams<"/files/*">;
+  type R2 = BasePathParams<"/files/**">;
+  assertType<IsExact<R1, {}>>(true);
+  assertType<IsExact<R2, {}>>(true);
 });
 
 Deno.test("BasePathParams — no params yields empty-ish", () => {
   type R = BasePathParams<"/users">;
-  // ExtractParams<"/users"> = never → Record<never, string> = {}
-  assertType<IsExact<R, {}> >(true);
+  assertType<IsExact<R, {}>>(true);
 });
 
 // ---------------------------------------------------------------------------
@@ -76,7 +77,6 @@ Deno.test("MergeParam — overrides a key type", () => {
   type Base = { id: string; name: string };
   type Schema = ValibotSchema<number>;
   type R = MergeParam<Base, "id", Schema>;
-  // id should now be number, name stays string
   type IdType = R["id"];
   type NameType = R["name"];
   assertType<IsExact<IdType, number>>(true);
@@ -118,6 +118,12 @@ Deno.test("InferBody — none kind returns undefined", () => {
 // ---------------------------------------------------------------------------
 
 Deno.test("InputKind — all variants", () => {
-  type AllKinds = "json" | "multipart" | "urlencoded" | "blob" | "text" | "none";
+  type AllKinds =
+    | "json"
+    | "multipart"
+    | "urlencoded"
+    | "blob"
+    | "text"
+    | "none";
   assertType<IsExact<InputKind, AllKinds>>(true);
 });

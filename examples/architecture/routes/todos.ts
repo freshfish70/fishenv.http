@@ -25,7 +25,9 @@ export function registerTodoRoutes(router: Router) {
     .handle(async ({ query, container }) => {
       const uc = container.get(ListTodos);
       const todos = await uc.execute(
-        query.completed !== undefined ? { completed: query.completed } : undefined,
+        query.completed !== undefined
+          ? { completed: query.completed }
+          : undefined,
       );
       return Response.json(todos);
     });

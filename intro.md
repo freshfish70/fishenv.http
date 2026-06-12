@@ -1,25 +1,38 @@
 # fishenv.http
 
-A HTTP server/library built with Deno and TypeScript. It is designed to be simple, efficient, and easy to use for building web applications and APIs.
+A HTTP server/library built with Deno and TypeScript. It is designed to be
+simple, efficient, and easy to use for building web applications and APIs.
 
-It is an opinionated framework that provides a set of tools and conventions for building web applications, while still allowing for flexibility and customization.
-The main features of `fishenv.http` include:
+It is an opinionated framework that provides a set of tools and conventions for
+building web applications, while still allowing for flexibility and
+customization. The main features of `fishenv.http` include:
 
-- Routing: A simple and intuitive routing system for defining endpoints and handling requests.
-- Middleware: Support for middleware functions that can be used to modify requests and responses, handle authentication, and perform other tasks.
-- Request and Response Handling: A straightforward API for working with HTTP requests and responses, including support for JSON, form data, and file uploads.
-- Error Handling: Built-in error handling mechanisms to help manage and respond to errors in a consistent way.
-- Performance: Designed for high performance, with efficient handling of requests and responses, and support for asynchronous operations.
-  Overall, `fishenv.http` aims to provide a solid foundation for building web applications and APIs with Deno, while keeping the development process simple and enjoyable.
+- Routing: A simple and intuitive routing system for defining endpoints and
+  handling requests.
+- Middleware: Support for middleware functions that can be used to modify
+  requests and responses, handle authentication, and perform other tasks.
+- Request and Response Handling: A straightforward API for working with HTTP
+  requests and responses, including support for JSON, form data, and file
+  uploads.
+- Error Handling: Built-in error handling mechanisms to help manage and respond
+  to errors in a consistent way.
+- Performance: Designed for high performance, with efficient handling of
+  requests and responses, and support for asynchronous operations. Overall,
+  `fishenv.http` aims to provide a solid foundation for building web
+  applications and APIs with Deno, while keeping the development process simple
+  and enjoyable.
 
 # Routing
 
-The routing system in `fishenv.http` allows you to define endpoints and handle requests in a straightforward way.
-You can define routes for different HTTP methods (GET, POST, PUT, DELETE, etc.) and specify the path for each route.
-The routing system also supports route parameters, query parameters, and middleware functions that can be applied to specific routes or groups of routes.
+The routing system in `fishenv.http` allows you to define endpoints and handle
+requests in a straightforward way. You can define routes for different HTTP
+methods (GET, POST, PUT, DELETE, etc.) and specify the path for each route. The
+routing system also supports route parameters, query parameters, and middleware
+functions that can be applied to specific routes or groups of routes.
 
-Grouping should be possible by using a `Router` class that allows you to define a group of routes with a common path prefix and shared middleware.
-This can help to organize your routes and apply middleware to multiple routes at once.
+Grouping should be possible by using a `Router` class that allows you to define
+a group of routes with a common path prefix and shared middleware. This can help
+to organize your routes and apply middleware to multiple routes at once.
 
 ```typescript
 import { r } from "fishenv.http";
@@ -120,9 +133,12 @@ api.get("/users/:id").handle(({ req, path, ctx }) => {
 
 # Error Handling
 
-`fishenv.http` provides built-in error handling mechanisms to help manage and respond to errors in a consistent way.
+`fishenv.http` provides built-in error handling mechanisms to help manage and
+respond to errors in a consistent way.
 
-A route can have a error handler defined with the `catch` method, which will catch any errors thrown in the route handler or middleware and allow you to handle them gracefully.
+A route can have a error handler defined with the `catch` method, which will
+catch any errors thrown in the route handler or middleware and allow you to
+handle them gracefully.
 
 ````typescript
 route
@@ -170,14 +186,21 @@ route
 
 # Dependency Injection
 
-`fishenv.http` includes support for dependency injection, allowing you to manage and resolve dependencies in a clean and efficient way.
-You can define services and register them in a dependency injection container, which can then be accessed in your route handlers and middleware using the context object.
-This will be implemented with another fishenv library, `fishenv.di`, which will provide a simple and intuitive API for defining and managing dependencies in your application.
+`fishenv.http` includes support for dependency injection, allowing you to manage
+and resolve dependencies in a clean and efficient way. You can define services
+and register them in a dependency injection container, which can then be
+accessed in your route handlers and middleware using the context object. This
+will be implemented with another fishenv library, `fishenv.di`, which will
+provide a simple and intuitive API for defining and managing dependencies in
+your application.
 
 # Websockets
 
-`fishenv.http` also includes support for WebSockets, allowing you to build real-time applications and APIs that can maintain persistent connections with clients.
-You can define WebSocket routes and handlers using a similar API to regular HTTP routes, and manage WebSocket connections and messages in a straightforward way.
+`fishenv.http` also includes support for WebSockets, allowing you to build
+real-time applications and APIs that can maintain persistent connections with
+clients. You can define WebSocket routes and handlers using a similar API to
+regular HTTP routes, and manage WebSocket connections and messages in a
+straightforward way.
 
 ```typescript
 route.ws("/ws").handle(({ ws, ctx }) => {
@@ -192,8 +215,11 @@ route.ws("/ws").handle(({ ws, ctx }) => {
 
 # SSE (Server-Sent Events)
 
-`fishenv.http` also includes support for Server-Sent Events (SSE), allowing you to build real-time applications that can push updates from the server to the client over a single HTTP connection.
-You can define SSE routes and handlers using a similar API to regular HTTP routes, and manage SSE connections and events in a straightforward way.
+`fishenv.http` also includes support for Server-Sent Events (SSE), allowing you
+to build real-time applications that can push updates from the server to the
+client over a single HTTP connection. You can define SSE routes and handlers
+using a similar API to regular HTTP routes, and manage SSE connections and
+events in a straightforward way.
 
 ```typescript
 route.sse("/sse").handle(({ sse, ctx }) => {
@@ -209,9 +235,14 @@ route.sse("/sse").handle(({ sse, ctx }) => {
 
 # Streaming Responses
 
-`fishenv.http` also includes support for streaming responses, allowing you to send data to the client in chunks as it becomes available, rather than waiting for the entire response to be ready before sending it to the client.
-This can be useful for scenarios such as sending large files, streaming data from a database, or implementing real-time updates without using WebSockets or SSE.
-You can define a streaming route and handler that uses a readable stream to send data to the client in chunks, and manage the streaming connection in a straightforward way.
+`fishenv.http` also includes support for streaming responses, allowing you to
+send data to the client in chunks as it becomes available, rather than waiting
+for the entire response to be ready before sending it to the client. This can be
+useful for scenarios such as sending large files, streaming data from a
+database, or implementing real-time updates without using WebSockets or SSE. You
+can define a streaming route and handler that uses a readable stream to send
+data to the client in chunks, and manage the streaming connection in a
+straightforward way.
 
 ```typescript
 route.stream("/stream").handle(({ res, ctx }) => {
@@ -236,8 +267,11 @@ route.stream("/stream").handle(({ res, ctx }) => {
 
 # Static File Serving
 
-`fishenv.http` also includes support for serving static files, allowing you to easily serve HTML, CSS, JavaScript, images, and other static assets from your application.
-You can define a static file route that serves files from a specified directory, and configure options such as caching and directory listing.
+`fishenv.http` also includes support for serving static files, allowing you to
+easily serve HTML, CSS, JavaScript, images, and other static assets from your
+application. You can define a static file route that serves files from a
+specified directory, and configure options such as caching and directory
+listing.
 
 ```typescript
 route.static("/static", {
@@ -249,25 +283,38 @@ route.static("/static", {
 
 # Async Local Storage
 
-`fishenv.http` also includes support for Async Local Storage, allowing you to store and access data that is specific to a particular request or context throughout the lifecycle of that request.
-This can be useful for scenarios such as tracking request-specific data, managing user sessions, or implementing request-scoped dependency injection.
-You can use Async Local Storage to create a context that is accessible in your route handlers and middleware, allowing you to store and retrieve data that is specific to the current request without having to pass it explicitly through function parameters.
+`fishenv.http` also includes support for Async Local Storage, allowing you to
+store and access data that is specific to a particular request or context
+throughout the lifecycle of that request. This can be useful for scenarios such
+as tracking request-specific data, managing user sessions, or implementing
+request-scoped dependency injection. You can use Async Local Storage to create a
+context that is accessible in your route handlers and middleware, allowing you
+to store and retrieve data that is specific to the current request without
+having to pass it explicitly through function parameters.
 
 # Open API Documentation
 
-`fishenv.http` also includes support for generating OpenAPI documentation for your API, allowing you to easily document your endpoints, request and response schemas, and other details about your API in a standardized format.
-You can define metadata for your routes, such as the title and description, and specify input and output schemas for your routes, which will be used to generate the OpenAPI documentation.
+`fishenv.http` also includes support for generating OpenAPI documentation for
+your API, allowing you to easily document your endpoints, request and response
+schemas, and other details about your API in a standardized format. You can
+define metadata for your routes, such as the title and description, and specify
+input and output schemas for your routes, which will be used to generate the
+OpenAPI documentation.
 
 # RPC/Client Generation
 
-`fishenv.http` also includes support for generating RPC clients based on your route definitions, allowing you to easily create clients for your API.
-It should be scoped to a specific HTTP client (fishenv.wrq).
+`fishenv.http` also includes support for generating RPC clients based on your
+route definitions, allowing you to easily create clients for your API. It should
+be scoped to a specific HTTP client (fishenv.wrq).
 
-We need to build a client generator that parses the route definitions and generates client code that can be used to make requests to the API endpoints defined in `fishenv.http`.
+We need to build a client generator that parses the route definitions and
+generates client code that can be used to make requests to the API endpoints
+defined in `fishenv.http`.
 
 # Project structure
 
-- core/: Core functionality of the HTTP server, including request handling, routing, middleware, and error handling.
+- core/: Core functionality of the HTTP server, including request handling,
+  routing, middleware, and error handling.
 - ws/: WebSocket support and related functionality.
 - sse/: Server-Sent Events support and related functionality.
 - static/: Static file serving functionality.
@@ -278,19 +325,36 @@ We need to build a client generator that parses the route definitions and genera
 
 # Footnote
 
-Its important that we dont try to be very generic in regards to allow all forms of setups, it should be somewhat strict and opinionated to keep a clean and maintainable API.
-But we should have all the features to create any type of http server/api without alot of burden on the developer. It should be easy to use, and quick to get started.
+Its important that we dont try to be very generic in regards to allow all forms
+of setups, it should be somewhat strict and opinionated to keep a clean and
+maintainable API. But we should have all the features to create any type of http
+server/api without alot of burden on the developer. It should be easy to use,
+and quick to get started.
 
-The structure of the code should be modular and organized, with clear separation of concerns between different parts of the framework (e.g., routing, middleware, error handling, etc.).
-This is to ensure that the codebase remains maintainable and scalable as the framework evolves and grows over time.
+The structure of the code should be modular and organized, with clear separation
+of concerns between different parts of the framework (e.g., routing, middleware,
+error handling, etc.). This is to ensure that the codebase remains maintainable
+and scalable as the framework evolves and grows over time.
 
-We should also prioritize performance and efficiency in the design and implementation of the framework, to ensure that it can handle a large number of requests and provide a responsive experience for users.
+We should also prioritize performance and efficiency in the design and
+implementation of the framework, to ensure that it can handle a large number of
+requests and provide a responsive experience for users.
 
-We must use well defined TypeScript types and interfaces throughout the codebase to ensure type safety and improve developer experience when using the framework. This includes defining types for requests, responses, middleware, route handlers, and other components of the framework.
-We must use established standards for HTTP and web development, such as the Fetch API for handling requests and responses, and the OpenAPI specification for documenting APIs. This will help to ensure that the framework is compatible with existing tools and libraries in the ecosystem, and that it follows best practices for web development.
+We must use well defined TypeScript types and interfaces throughout the codebase
+to ensure type safety and improve developer experience when using the framework.
+This includes defining types for requests, responses, middleware, route
+handlers, and other components of the framework. We must use established
+standards for HTTP and web development, such as the Fetch API for handling
+requests and responses, and the OpenAPI specification for documenting APIs. This
+will help to ensure that the framework is compatible with existing tools and
+libraries in the ecosystem, and that it follows best practices for web
+development.
 
-We use the Deno runtime for this project, which provides a secure and modern environment for building web applications and APIs. Deno's built-in support for TypeScript, its standard library, and its focus on security and performance make it an ideal choice for this project.
-We use DENO 2.7+ to take advantage of the latest features.
+We use the Deno runtime for this project, which provides a secure and modern
+environment for building web applications and APIs. Deno's built-in support for
+TypeScript, its standard library, and its focus on security and performance make
+it an ideal choice for this project. We use DENO 2.7+ to take advantage of the
+latest features.
 
 - https://docs.deno.com/api/deno/~/Deno.serve
 - https://docs.deno.com/examples/http_server_files/

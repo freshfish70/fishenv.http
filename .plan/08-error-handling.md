@@ -1,10 +1,14 @@
 # 08 — Error Handling
 
 ## Decisions
+
 - **Logger**: `serve({ logger })` option; falls back to `console.error`.
-- **Development mode**: Stack traces in responses only when `serve({ development: true })`.
-- **Error types in `.output()`**: Documentation / OpenAPI only — no runtime enforcement.
-- **Error distinction**: Middleware throws typed `HttpError` subclasses; error handlers inspect with `instanceof`.
+- **Development mode**: Stack traces in responses only when
+  `serve({ development: true })`.
+- **Error types in `.output()`**: Documentation / OpenAPI only — no runtime
+  enforcement.
+- **Error distinction**: Middleware throws typed `HttpError` subclasses; error
+  handlers inspect with `instanceof`.
 
 ## Error Class Hierarchy
 
@@ -70,27 +74,30 @@ function defaultErrorHandler(
   opts: { development?: boolean; logger?: Logger },
 ): Response {
   if (err instanceof HttpError) {
-    return err.toResponse(opts.development)
+    return err.toResponse(opts.development);
   }
-  const logger = opts.logger ?? console
-  logger.error("[fishenv.http] Unhandled error:", err)
-  const body: Record<string, unknown> = { error: "Internal Server Error" }
-  if (opts.development && err instanceof Error) body.stack = err.stack
-  return Response.json(body, { status: 500 })
+  const logger = opts.logger ?? console;
+  logger.error("[fishenv.http] Unhandled error:", err);
+  const body: Record<string, unknown> = { error: "Internal Server Error" };
+  if (opts.development && err instanceof Error) body.stack = err.stack;
+  return Response.json(body, { status: 500 });
 }
 
 function defaultNotFoundHandler(req: Request): Response {
   return Response.json(
     { error: "Not Found", path: new URL(req.url).pathname },
     { status: 404 },
-  )
+  );
 }
 
-function defaultMethodNotAllowedHandler(req: Request, allowed: HttpMethod[]): Response {
+function defaultMethodNotAllowedHandler(
+  req: Request,
+  allowed: HttpMethod[],
+): Response {
   return new Response(null, {
     status: 405,
     headers: { Allow: allowed.join(", ") },
-  })
+  });
 }
 ```
 
@@ -102,12 +109,14 @@ Error handlers are typed as:
 type ErrorHandlerFn = (
   err: unknown,
   args: { req: Request },
-) => Response | Promise<Response> | null | undefined | void
+) => Response | Promise<Response> | null | undefined | void;
 ```
 
-Returning `null | undefined | void` passes to the next handler. The built-in fallback always returns a `Response`.
+Returning `null | undefined | void` passes to the next handler. The built-in
+fallback always returns a `Response`.
 
-The chain is assembled per-route during `build()` (see step 06), innermost first:
+The chain is assembled per-route during `build()` (see step 06), innermost
+first:
 
 ```
 route.catch(fn)
@@ -144,5 +153,7 @@ router.post("/upload")
 ```
 
 ## Files to Create
+
 - `core/error.ts` — all error classes + default handlers
-- `core/error.test.ts` — error chain propagation, `toResponse()`, development mode stack traces
+- `core/error.test.ts` — error chain propagation, `toResponse()`, development
+  mode stack traces

@@ -45,8 +45,9 @@ Deno.test("extractParamNames — optional param", () => {
   assertEquals(extractParamNames("/users/:id?"), ["id"]);
 });
 
-Deno.test("extractParamNames — wildcard", () => {
-  assertEquals(extractParamNames("/files/*"), ["*"]);
+Deno.test("extractParamNames — globs are not params", () => {
+  assertEquals(extractParamNames("/files/*.{css,js}"), []);
+  assertEquals(extractParamNames("/files/**"), []);
 });
 
 Deno.test("extractParamNames — no params", () => {
@@ -92,11 +93,44 @@ Deno.test("buildRouteRegex — optional param matches without value", () => {
   assertEquals(regex.test("/users"), true);
 });
 
-Deno.test("buildRouteRegex — wildcard", () => {
+Deno.test("buildRouteRegex — segment wildcard", () => {
   const { regex, paramNames } = buildRouteRegex("/files/*");
-  assertEquals(paramNames, ["*"]);
-  const m = regex.exec("/files/a/b/c");
-  assertEquals(m?.[1], "a/b/c");
+  assertEquals(paramNames, []);
+  assertEquals(regex.test("/files/a"), true);
+  assertEquals(regex.test("/files/a/b/c"), false);
+});
+
+Deno.test("buildRouteRegex — segment wildcard with extension set", () => {
+  const { regex, paramNames } = buildRouteRegex("/assets/*.{css,js}");
+  assertEquals(paramNames, []);
+  assertEquals(regex.test("/assets/app.css"), true);
+  assertEquals(regex.test("/assets/app.js"), true);
+  assertEquals(regex.test("/assets/app.png"), false);
+  assertEquals(regex.test("/assets/nested/app.css"), false);
+});
+
+Deno.test("buildRouteRegex — single segment glob and suffix wildcard", () => {
+  const { regex, paramNames } = buildRouteRegex("/assets/*/image*");
+  assertEquals(paramNames, []);
+  assertEquals(regex.test("/assets/icons/image"), true);
+  assertEquals(regex.test("/assets/icons/image@2x"), true);
+  assertEquals(regex.test("/assets/image"), false);
+  assertEquals(regex.test("/assets/icons/deeper/image"), false);
+});
+
+Deno.test("buildRouteRegex — deep wildcard", () => {
+  const { regex, paramNames } = buildRouteRegex("/assets/**/image*");
+  assertEquals(paramNames, []);
+  assertEquals(regex.test("/assets/image"), true);
+  assertEquals(regex.test("/assets/icons/image"), true);
+  assertEquals(regex.test("/assets/icons/deeper/image@2x"), true);
+});
+
+Deno.test("buildRouteRegex — trailing deep wildcard", () => {
+  const { regex } = buildRouteRegex("/files/**");
+  assertEquals(regex.test("/files"), true);
+  assertEquals(regex.test("/files/a"), true);
+  assertEquals(regex.test("/files/a/b/c"), true);
 });
 
 Deno.test("buildRouteRegex — root path", () => {

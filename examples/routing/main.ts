@@ -13,9 +13,7 @@ const app = r({ prefix: "/api" });
 // ── Path parameters ────────────────────────────────────────────────────
 
 // Single param  →  GET /api/users/42
-app.get("/users/:id").handle(({ path }) =>
-  Response.json({ userId: path.id })
-);
+app.get("/users/:id").handle(({ path }) => Response.json({ userId: path.id }));
 
 // Multiple params  →  GET /api/orgs/acme/repos/http
 app.get("/orgs/:org/repos/:repo").handle(({ path }) =>

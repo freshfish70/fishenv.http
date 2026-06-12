@@ -1,4 +1,9 @@
-import type { AnySchema, InputKind, InputOptions, RouteDefinition } from "./types.ts";
+import type {
+  AnySchema,
+  InputKind,
+  InputOptions,
+  RouteDefinition,
+} from "./types.ts";
 import { BadRequestError, HttpError } from "./error.ts";
 import { validateField, validatePathParams } from "./validation.ts";
 
@@ -29,15 +34,18 @@ export async function parseInput(
 
   return {
     body: opts.body ? validateField(opts.body, body, "body") : body,
-    headers: (opts.headers
-      ? validateField(opts.headers, headers, "headers")
-      : headers) as Record<string, string>,
-    query: (opts.query
-      ? validateField(opts.query, query, "query")
-      : query) as Record<string, string | string[]>,
-    cookies: (opts.cookies
-      ? validateField(opts.cookies, cookies, "cookies")
-      : cookies) as Record<string, string>,
+    headers:
+      (opts.headers
+        ? validateField(opts.headers, headers, "headers")
+        : headers) as Record<string, string>,
+    query:
+      (opts.query
+        ? validateField(opts.query, query, "query")
+        : query) as Record<string, string | string[]>,
+    cookies:
+      (opts.cookies
+        ? validateField(opts.cookies, cookies, "cookies")
+        : cookies) as Record<string, string>,
     path,
   };
 }
