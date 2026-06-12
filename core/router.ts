@@ -1,13 +1,19 @@
 import type {
+  BasePathParams,
   DIContainer,
   ErrorHandlerFn,
   HttpMethod,
+  InputOptions,
   MiddlewareFn,
   NotFoundHandler,
   RouteDefinition,
 } from "./types.ts";
 import { buildCors, type CompiledCors, type CorsOptions } from "./cors.ts";
-import { createRouteBuilder, type RouterRef } from "./route-builder.ts";
+import {
+  createRouteBuilder,
+  type RouteBuilder,
+  type RouterRef,
+} from "./route-builder.ts";
 import { Matcher } from "./matcher.ts";
 import { dispatch } from "./compose.ts";
 import {
@@ -128,27 +134,39 @@ export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
 
   // ── Route methods ────────────────────────────────────────────────────
 
-  get<P extends string>(path: P) {
+  get<P extends string>(
+    path: P,
+  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
     return createRouteBuilder<Ctx, P>(this, "GET", path);
   }
 
-  post<P extends string>(path: P) {
+  post<P extends string>(
+    path: P,
+  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
     return createRouteBuilder<Ctx, P>(this, "POST", path);
   }
 
-  put<P extends string>(path: P) {
+  put<P extends string>(
+    path: P,
+  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
     return createRouteBuilder<Ctx, P>(this, "PUT", path);
   }
 
-  patch<P extends string>(path: P) {
+  patch<P extends string>(
+    path: P,
+  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
     return createRouteBuilder<Ctx, P>(this, "PATCH", path);
   }
 
-  delete<P extends string>(path: P) {
+  delete<P extends string>(
+    path: P,
+  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
     return createRouteBuilder<Ctx, P>(this, "DELETE", path);
   }
 
-  options<P extends string>(path: P) {
+  options<P extends string>(
+    path: P,
+  ): RouteBuilder<Ctx, Record<never, never>, "none", InputOptions<"none">, BasePathParams<P>, undefined> {
     return createRouteBuilder<Ctx, P>(this, "OPTIONS", path);
   }
 
