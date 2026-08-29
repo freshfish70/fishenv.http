@@ -272,7 +272,6 @@ export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
     const url = new URL(req.url);
     const method = req.method.toUpperCase();
     const isHead = method === "HEAD";
-    console.log(`Incoming request: ${method} ${url.pathname}`);
 
     // CORS preflight — short-circuit before route matching
     if (method === "OPTIONS" && this.#cors) {
