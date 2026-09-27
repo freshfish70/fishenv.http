@@ -11,13 +11,14 @@ import type {
 import { buildCors, type CompiledCors, type CorsOptions } from "./cors.ts";
 import {
   createRouteBuilder,
+  createRouteBuilderFromContract,
   type RouteBuilder,
   type RouterRef,
 } from "./route-builder.ts";
+import type { AnyContractBuilder, ContractShape } from "@fishenv/http-contract";
 import { Matcher } from "./matcher.ts";
 import { dispatch } from "./compose.ts";
 import {
-  defaultErrorHandler,
   defaultMethodNotAllowedHandler,
   defaultNotFoundHandler,
 } from "./error.ts";
@@ -48,8 +49,9 @@ interface RouterStore {
  * Route methods (.get, .post, etc.) return a RouteBuilder chain.
  * Call `.build()` before `.fetch` or `serve()`.
  */
-export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
-  implements RouterRef {
+export class Router<
+  Ctx extends Record<string, unknown> = Record<never, never>,
+> implements RouterRef {
   readonly #prefix: string;
   readonly #middlewares: MiddlewareFn<
     Record<string, unknown>,
@@ -210,6 +212,32 @@ export class Router<Ctx extends Record<string, unknown> = Record<never, never>>
     undefined
   > {
     return createRouteBuilder<Ctx, P>(this, "OPTIONS", path);
+  }
+
+  // ── Contract-driven route ────────────────────────────────────────────
+
+  /**
+   * Register a route from a `@fishenv/http-contract` endpoint definition, e.g.:
+   *
+   * ```ts
+   * router.contract(contract.users.create).handle(({ body }) => { ... });
+   * ```
+   *
+   * `.handle()` gets exactly the same type safety (body/query/params/output)
+   * as chaining `.input().output().param()` manually, because the contract
+   * endpoint and the route builder share the same shape types.
+   */
+  contract<C extends AnyContractBuilder>(
+    endpoint: C,
+  ): RouteBuilder<
+    Ctx,
+    Record<never, never>,
+    ContractShape<C>["inputKind"],
+    ContractShape<C>["inputOptions"],
+    ContractShape<C>["params"],
+    ContractShape<C>["output"]
+  > {
+    return createRouteBuilderFromContract<Ctx, C>(this, endpoint);
   }
 
   // ── Error / not-found ────────────────────────────────────────────────

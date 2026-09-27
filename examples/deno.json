@@ -1,6 +1,7 @@
 {
   "imports": {
     "@fishenv/http": "../core/mod.ts",
+    "@fishenv/http-contract": "../contract/mod.ts",
     "valibot": "jsr:@valibot/valibot@^1"
   }
 }

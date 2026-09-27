@@ -292,6 +292,41 @@ context that is accessible in your route handlers and middleware, allowing you
 to store and retrieve data that is specific to the current request without
 having to pass it explicitly through function parameters.
 
+# Contracts & Typesafe Clients
+
+`fishenv.http` supports defining an API's shape as portable, isolated data via
+`@fishenv/http-contract` — no server dependencies (no DI, middleware, `Deno.serve`),
+just method/path/input/output. A contract endpoint is built the same way a
+route is:
+
+```typescript
+import { c } from "@fishenv/http-contract";
+import * as v from "valibot";
+
+export const contract = {
+  users: {
+    create: c.post("/users").input("json", { body: CreateUserSchema })
+      .output(UserSchema),
+    get: c.get("/users/:id").param("id", NumericId).output(UserSchema),
+  },
+};
+```
+
+The API registers routes straight from the contract, with the exact same type
+safety as chaining `.input().output().param()` manually:
+
+```typescript
+router.contract(contract.users.create).handle(({ body }) => {
+  // body is typed as { name: string; email: string } — from the contract
+});
+```
+
+Because `@fishenv/http-contract` has no dependency on `@fishenv/http` (the
+relationship is one-directional: `core` depends on `contract`, never the
+other way around), a contract package can be published/shared on its own and
+consumed by a frontend to build a fully typesafe client, or by tooling (e.g.
+OpenAPI generation) — without pulling in any server runtime code.
+
 # Open API Documentation
 
 `fishenv.http` also includes support for generating OpenAPI documentation for
@@ -300,16 +335,6 @@ schemas, and other details about your API in a standardized format. You can
 define metadata for your routes, such as the title and description, and specify
 input and output schemas for your routes, which will be used to generate the
 OpenAPI documentation.
-
-# RPC/Client Generation
-
-`fishenv.http` also includes support for generating RPC clients based on your
-route definitions, allowing you to easily create clients for your API. It should
-be scoped to a specific HTTP client (fishenv.wrq).
-
-We need to build a client generator that parses the route definitions and
-generates client code that can be used to make requests to the API endpoints
-defined in `fishenv.http`.
 
 # Project structure
 
@@ -320,8 +345,11 @@ defined in `fishenv.http`.
 - static/: Static file serving functionality.
 - di/: Dependency injection container and related functionality.
 - openapi/: OpenAPI documentation generation functionality.
-- client-gen/: RPC client generation functionality.
+- contract/: Isolated, server-independent contract definitions (method, path,
+  input/output schemas) shared between the API and its consumers (typesafe
+  clients, OpenAPI generation, ...).
 - utils/: Utility functions and helpers used across the project.
+
 
 # Footnote
 

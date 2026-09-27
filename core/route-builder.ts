@@ -5,13 +5,8 @@ import type {
   BeforeInterceptorFn,
   ErrorHandlerFn,
   HandlerArgs,
-  HandlerFn,
   HttpMethod,
-  InferBody,
-  InferCookies,
-  InferHeaders,
   InferOutput,
-  InferQuery,
   InputKind,
   InputOptions,
   InterceptorPair,
@@ -20,6 +15,7 @@ import type {
   RouteDefinition,
   RouteMeta,
 } from "./types.ts";
+import type { AnyContractBuilder, ContractShape } from "@fishenv/http-contract";
 
 /**
  * Internal interface — the Router class (step 06) will implement this.
@@ -238,7 +234,8 @@ export class RouteBuilder<
   handle(
     fn: (
       args: HandlerArgs<RouterCtx & RouteCtx, K, O, Params>,
-    ) => Output extends undefined ? Response | Promise<Response>
+    ) => Output extends undefined
+      ? Response | Promise<Response>
       : Response | Output | Promise<Response | Output>,
   ): FinishedRoute {
     const fullPath = this.#router._getPrefix()
@@ -286,9 +283,50 @@ export function createRouteBuilder<
   BasePathParams<P>,
   undefined
 > {
+  return new RouteBuilder(router, method, path);
+}
+
+/**
+ * Factory — creates a `RouteBuilder` pre-populated from a `@fishenv/http-contract`
+ * endpoint (method, path, params, input, output). Used by `Router.contract()`.
+ *
+ * The returned builder carries exactly the generic shape (`K`, `O`, `Params`,
+ * `Output`) declared on the contract endpoint, so `.handle()` gets the same
+ * type safety as manually chaining `.input().output().param()`.
+ */
+export function createRouteBuilderFromContract<
+  RouterCtx extends Record<string, unknown>,
+  C extends AnyContractBuilder,
+>(
+  router: RouterRef,
+  endpoint: C,
+): RouteBuilder<
+  RouterCtx,
+  Record<never, never>,
+  ContractShape<C>["inputKind"],
+  ContractShape<C>["inputOptions"],
+  ContractShape<C>["params"],
+  ContractShape<C>["output"]
+> {
+  const def = endpoint._definition;
   return new RouteBuilder(
     router,
-    method,
-    path,
-  );
+    def.method,
+    def.path,
+    [],
+    new Map(def.paramSchemas),
+    def.inputKind,
+    def.inputOptions,
+    def.outputSchema,
+    def.errorTypes ? [...def.errorTypes] : undefined,
+    def.meta ? { ...def.meta } : undefined,
+    [],
+  ) as RouteBuilder<
+    RouterCtx,
+    Record<never, never>,
+    ContractShape<C>["inputKind"],
+    ContractShape<C>["inputOptions"],
+    ContractShape<C>["params"],
+    ContractShape<C>["output"]
+  >;
 }

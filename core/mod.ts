@@ -44,6 +44,7 @@ export {
 // Route Builder
 export {
   createRouteBuilder,
+  createRouteBuilderFromContract,
   FinishedRoute,
   RouteBuilder,
 } from "./route-builder.ts";
