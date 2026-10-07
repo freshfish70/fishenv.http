@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import { r, Router } from "./router.ts";
+import { type CtxOf, r, Router, type serve } from "./router.ts";
 import type { MiddlewareFn } from "./types.ts";
 
 const BASE = "http://localhost";
@@ -343,5 +343,194 @@ describe("Router build()", () => {
     } catch (e) {
       assertEquals((e as Error).message, "Cannot add routes after build()");
     }
+  });
+});
+
+// ── Mounting (add) ─────────────────────────────────────────────────────
+
+describe("Router add()", () => {
+  type AuthCtx = { user: string };
+  const auth: MiddlewareFn<Record<string, unknown>, AuthCtx> = () => ({
+    user: "alice",
+  });
+
+  it("mounts a router defined independently, with parent prefix and middleware", async () => {
+    const users = r<AuthCtx>({ prefix: "/users" });
+    users.get("/me").handle(({ ctx }) => Response.json({ user: ctx.user }));
+
+    const app = r({ prefix: "/api" }).use(auth).add(users);
+    app.build();
+
+    const res = await app.fetch(req("/api/users/me"));
+    assertEquals(await res.json(), { user: "alice" });
+  });
+
+  it("add(prefix, ...routers) mounts under an extra prefix", async () => {
+    const users = r({ prefix: "/users" });
+    users.get("/").handle(() => new Response("list"));
+    const posts = r({ prefix: "/posts" });
+    posts.get("/").handle(() => new Response("posts"));
+
+    const app = r({ prefix: "/api" }).add("/v1", users, posts);
+    app.build();
+
+    assertEquals(await (await app.fetch(req("/api/v1/users/"))).text(), "list");
+    assertEquals(
+      await (await app.fetch(req("/api/v1/posts/"))).text(),
+      "posts",
+    );
+  });
+
+  it("the same router can be mounted under several prefixes", async () => {
+    const users = r();
+    users.get("/users").handle(() => new Response("u"));
+
+    const app = r().add("/v1", users).add("/v2", users);
+    app.build();
+
+    assertEquals((await app.fetch(req("/v1/users"))).status, 200);
+    assertEquals((await app.fetch(req("/v2/users"))).status, 200);
+  });
+
+  it("uses the middleware of the variant add() was called on", async () => {
+    const order: string[] = [];
+    const a: MiddlewareFn<Record<string, unknown>, { a: true }> = () => {
+      order.push("a");
+      return { a: true };
+    };
+    const b: MiddlewareFn<{ a: true }, { b: true }> = () => {
+      order.push("b");
+      return { b: true };
+    };
+    const child: MiddlewareFn<{ a: true }, { c: true }> = () => {
+      order.push("child");
+      return { c: true };
+    };
+
+    const open = r<{ a: true }>({ prefix: "/open" });
+    open.get("/x").handle(() => new Response("ok"));
+    const locked = r<{ a: true; b: true }>({ prefix: "/locked" }).use(child);
+    locked.get("/x").handle(() => new Response("ok"));
+
+    const base = r().use(a);
+    base.add(open);
+    base.use(b).add(locked);
+    base.build();
+
+    await base.fetch(req("/open/x"));
+    assertEquals(order, ["a"]);
+    order.length = 0;
+    await base.fetch(req("/locked/x"));
+    assertEquals(order, ["a", "b", "child"]);
+  });
+
+  it("nested mounts compose prefixes and middleware", async () => {
+    const leaf = r<AuthCtx & { role: string }>({ prefix: "/leaf" });
+    leaf.get("/").handle(({ ctx }) =>
+      Response.json({ user: ctx.user, role: ctx.role })
+    );
+
+    const mid = r<AuthCtx>({ prefix: "/mid" })
+      .use(() => ({ role: "admin" }))
+      .add(leaf);
+
+    const app = r().use(auth).add("/api", mid);
+    app.build();
+
+    const res = await app.fetch(req("/api/mid/leaf/"));
+    assertEquals(await res.json(), { user: "alice", role: "admin" });
+  });
+
+  it("chains child onError before parent onError", async () => {
+    const calls: string[] = [];
+    const child = r().onError(() => {
+      calls.push("child");
+      return null;
+    });
+    child.get("/boom").handle(() => {
+      throw new Error("boom");
+    }).catch(() => {
+      calls.push("route");
+      return null;
+    });
+
+    const app = r().onError(() => {
+      calls.push("root");
+      return new Response("handled", { status: 418 });
+    }).add(child);
+    app.build();
+
+    const res = await app.fetch(req("/boom"));
+    assertEquals(res.status, 418);
+    assertEquals(calls, ["route", "child", "root"]);
+  });
+
+  it("routes added to a child after build() throw", () => {
+    const child = r();
+    const app = r().add(child);
+    app.build();
+    try {
+      child.get("/late").handle(() => new Response("x"));
+      throw new Error("should have thrown");
+    } catch (e) {
+      assertEquals((e as Error).message, "Cannot add routes after build()");
+    }
+  });
+
+  it("add() after build() throws", () => {
+    const app = r();
+    app.build();
+    try {
+      app.add(r());
+      throw new Error("should have thrown");
+    } catch (e) {
+      assertEquals((e as Error).message, "Cannot add routers after build()");
+    }
+  });
+
+  it("detects mount cycles", () => {
+    const a = r();
+    const b = r();
+    a.add(b);
+    b.add(a);
+    try {
+      a.build();
+      throw new Error("should have thrown");
+    } catch (e) {
+      assertEquals((e as Error).message, "Router mount cycle detected");
+    }
+  });
+
+  it("rejects notFound() on a mounted router", () => {
+    const child = r().notFound(() => new Response("nope", { status: 404 }));
+    const app = r().add(child);
+    try {
+      app.build();
+      throw new Error("should have thrown");
+    } catch (e) {
+      assertEquals(
+        (e as Error).message,
+        "cors() and notFound() are only supported on the root router",
+      );
+    }
+  });
+
+  it("type-checks required context", () => {
+    const users = r<AuthCtx>();
+    const withAuth = r().use(auth);
+
+    withAuth.add(users);
+    withAuth.add("/v1", users);
+    // @ts-expect-error — parent does not provide `user`
+    r().add(users);
+    // @ts-expect-error — parent does not provide `user`
+    r().add("/v1", users);
+
+    const ctx: CtxOf<typeof withAuth> = { user: "x" };
+    void ctx;
+    // serve() only accepts routers with no outstanding requirements
+    const _ok: Parameters<typeof serve>[0] = withAuth;
+    // @ts-expect-error — users requires AuthCtx
+    const _bad: Parameters<typeof serve>[0] = users;
   });
 });

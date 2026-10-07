@@ -135,6 +135,8 @@ export interface RouteDefinition {
     unknown
   >;
   errorHandler?: ErrorHandlerFn;
+  /** onError handlers of mounted routers, innermost first. Set at build(). */
+  routerErrorHandlers?: ErrorHandlerFn[];
   kind: "http" | "ws" | "sse";
 }
 

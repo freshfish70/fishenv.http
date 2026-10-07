@@ -14,10 +14,13 @@ export interface SseRouter<Ctx extends Record<string, unknown>> {
  * `.use()` returns a *new* router, so apply `withSse` last:
  * `withSse(r({ prefix: "/api" }).use(auth))`.
  */
-export function withSse<Ctx extends Record<string, unknown>>(
-  router: Router<Ctx>,
-): Router<Ctx> & SseRouter<Ctx> {
-  const target = router as Router<Ctx> & SseRouter<Ctx>;
+export function withSse<
+  Ctx extends Record<string, unknown>,
+  Req extends Record<string, unknown> = Record<never, never>,
+>(
+  router: Router<Ctx, Req>,
+): Router<Ctx, Req> & SseRouter<Ctx> {
+  const target = router as Router<Ctx, Req> & SseRouter<Ctx>;
 
   Object.defineProperty(target, "sse", {
     value: <P extends string>(path: P) =>

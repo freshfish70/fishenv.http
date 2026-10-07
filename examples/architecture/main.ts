@@ -6,7 +6,9 @@
  *   repos/      — repository interface + in-memory implementation
  *   usecases/   — application logic (ListTodos, CreateTodo, ToggleTodo, DeleteTodo)
  *   container/  — DI container wiring
- *   routes/     — HTTP layer — handlers pull use cases from the container
+ *   context.ts  — app-wide middleware; exports the AppCtx type
+ *   routes/     — HTTP layer, one router per module, typed with r<AppCtx>()
+ *   main.ts     — mounts the route modules on the base router
  *
  * Handlers never touch the repo directly. Swapping to Postgres is a
  * one-line change in container/mod.ts.
@@ -22,11 +24,12 @@
  *   curl localhost:3004/api/todos/<id> -X DELETE
  *   curl localhost:3004/api/todos/nonexistent -X DELETE    # → 404
  */
-import { r, serve } from "@fishenv/http";
+import { serve } from "@fishenv/http";
 import { createContainer } from "./container/mod.ts";
-import { registerTodoRoutes } from "./routes/todos.ts";
+import { base } from "./context.ts";
+import { todoRoutes } from "./routes/todos.ts";
 
-const app = r({ prefix: "/api" });
+const app = base;
 
 // Global error handler — catch anything that slips through
 app.onError((err) => {
@@ -34,8 +37,9 @@ app.onError((err) => {
   return null; // fall through to default error handler
 });
 
-// Register route modules
-registerTodoRoutes(app);
+// Mount route modules. Each one only compiles here if base provides its AppCtx.
+// app.add("/v1", todoRoutes) would serve them under /api/v1 instead.
+app.add(todoRoutes);
 
 serve(app, {
   port: 3004,

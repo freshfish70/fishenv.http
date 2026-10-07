@@ -52,7 +52,7 @@ export type { RouterRef } from "./route-builder.ts";
 
 // Router
 export { r, Router, router, serve } from "./router.ts";
-export type { Logger, ServeOptions } from "./router.ts";
+export type { CtxOf, Logger, ServeOptions } from "./router.ts";
 
 // Errors
 export {
