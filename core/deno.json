@@ -3,11 +3,11 @@
   "exports": {
     ".": "./mod.ts",
     "./types": "./types.ts",
-    "./ws": "../ws/mod.ts",
-    "./sse": "../sse/mod.ts",
-    "./static": "../static/mod.ts",
-    "./openapi": "../openapi/mod.ts",
-    "./contract": "../contract/mod.ts"
+    "./ws": "./../ws/mod.ts",
+    "./sse": "./../sse/mod.ts",
+    "./static": "./../static/mod.ts",
+    "./openapi": "./../openapi/mod.ts",
+    "./contract": "./../contract/mod.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@^1",
