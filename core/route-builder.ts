@@ -1,3 +1,4 @@
+import type { AnyContractBuilder, ContractShape } from "../contract/index.ts";
 import type {
   AfterInterceptorFn,
   AnySchema,
@@ -15,7 +16,6 @@ import type {
   RouteDefinition,
   RouteMeta,
 } from "./types.ts";
-import type { AnyContractBuilder, ContractShape } from "@fishenv/http-contract";
 
 /**
  * Internal interface — the Router class (step 06) will implement this.
@@ -72,7 +72,9 @@ export class RouteBuilder<
   #inputKind: InputKind;
   #inputOptions: InputOptions<InputKind>;
   #outputSchema?: AnySchema;
-  #errorTypes?: (new (...args: unknown[]) => Error)[];
+  #errorTypes?: (new (
+    ...args: unknown[]
+  ) => Error)[];
   #meta?: RouteMeta;
   #interceptors: InterceptorPair<Record<string, unknown>>[];
 

@@ -20,7 +20,7 @@ export type {
   MergeParam,
   RouteMeta,
   ValibotSchema,
-} from "@fishenv/http-contract";
+} from "../contract/index.ts";
 
 import type {
   AnySchema,
@@ -32,7 +32,7 @@ import type {
   InputKind,
   InputOptions,
   RouteMeta,
-} from "@fishenv/http-contract";
+} from "../contract/index.ts";
 
 export interface ResolvedInput<K extends InputKind, O extends InputOptions<K>> {
   kind: K;
@@ -145,7 +145,7 @@ export interface RouteDefinition {
 // ---------------------------------------------------------------------------
 
 export interface DIContainer {
-  // deno-lint-ignore no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: intentional any
   get<T>(token: abstract new (...args: any[]) => T): T;
 }
 

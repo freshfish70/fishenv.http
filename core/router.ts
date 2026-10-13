@@ -1,3 +1,17 @@
+import type { AnyContractBuilder, ContractShape } from "../contract/index.ts";
+import { dispatch } from "./compose.ts";
+import { buildCors, type CompiledCors, type CorsOptions } from "./cors.ts";
+import {
+  defaultMethodNotAllowedHandler,
+  defaultNotFoundHandler,
+} from "./error.ts";
+import { Matcher } from "./matcher.ts";
+import {
+  createRouteBuilder,
+  createRouteBuilderFromContract,
+  type RouteBuilder,
+  type RouterRef,
+} from "./route-builder.ts";
 import type {
   BasePathParams,
   DIContainer,
@@ -8,20 +22,6 @@ import type {
   NotFoundHandler,
   RouteDefinition,
 } from "./types.ts";
-import { buildCors, type CompiledCors, type CorsOptions } from "./cors.ts";
-import {
-  createRouteBuilder,
-  createRouteBuilderFromContract,
-  type RouteBuilder,
-  type RouterRef,
-} from "./route-builder.ts";
-import type { AnyContractBuilder, ContractShape } from "@fishenv/http-contract";
-import { Matcher } from "./matcher.ts";
-import { dispatch } from "./compose.ts";
-import {
-  defaultMethodNotAllowedHandler,
-  defaultNotFoundHandler,
-} from "./error.ts";
 
 const stubContainer: DIContainer = {
   get() {
@@ -31,7 +31,7 @@ const stubContainer: DIContainer = {
   },
 };
 
-// deno-lint-ignore no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: intentional any
 type AnyRouter = Router<any, any>;
 
 /**
@@ -70,7 +70,8 @@ interface RouterStore {
 export class Router<
   Ctx extends Record<string, unknown> = Record<never, never>,
   Requires extends Record<string, unknown> = Record<never, never>,
-> implements RouterRef {
+> implements RouterRef
+{
   /** @internal Phantom — makes `Requires` contravariant for `.add()` checks. */
   declare readonly _requires?: (ctx: Requires) => void;
   readonly #prefix: string;
@@ -161,15 +162,15 @@ export class Router<
    * build(). A child created with `r<AppCtx>()` only type-checks here if this
    * router's context provides `AppCtx`.
    */
-  // deno-lint-ignore no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: intentional any
   add(...children: Router<any, Ctx>[]): this;
-  // deno-lint-ignore no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: intentional any
   add(prefix: string, ...children: Router<any, Ctx>[]): this;
   add(...args: (string | AnyRouter)[]): this {
     if (this.#store.locked) {
       throw new Error("Cannot add routers after build()");
     }
-    const extra = typeof args[0] === "string" ? args.shift() as string : "";
+    const extra = typeof args[0] === "string" ? (args.shift() as string) : "";
     for (const child of args as AnyRouter[]) {
       this.#store.children.push({
         router: child,
@@ -489,7 +490,20 @@ export interface ServeOptions {
   development?: boolean;
   logger?: Logger;
   signal?: AbortSignal;
+  /**
+   * Seconds a connection may sit idle before Bun closes it. Defaults to `0`
+   * (disabled) so long-lived SSE streams are not cut between keepalives.
+   */
+  idleTimeout?: number;
   onListen?: (addr: { hostname: string; port: number }) => void;
+}
+
+/** A running server started by {@link serve}. */
+export interface HttpServer {
+  readonly hostname: string;
+  readonly port: number;
+  /** Stop accepting connections; `force` also closes in-flight ones. */
+  stop(force?: boolean): Promise<void>;
 }
 
 export interface Logger {
@@ -499,21 +513,29 @@ export interface Logger {
 }
 
 export function serve(
-  // deno-lint-ignore no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: accepts routers of any context
   app: Router<any, Record<never, never>>,
   options?: ServeOptions,
-): Deno.HttpServer {
+): HttpServer {
   if (options?.container) {
     app._setContainer(options.container);
   }
   app.build(); // idempotent
-  return Deno.serve(
-    {
-      port: options?.port ?? 8000,
-      hostname: options?.hostname ?? "0.0.0.0",
-      signal: options?.signal,
-      onListen: options?.onListen,
-    },
-    (req) => app.fetch(req),
-  );
+  const server = Bun.serve({
+    port: options?.port ?? 8000,
+    hostname: options?.hostname ?? "0.0.0.0",
+    development: options?.development ?? false,
+    idleTimeout: options?.idleTimeout ?? 0,
+    fetch: (req) => app.fetch(req),
+  });
+  const handle: HttpServer = {
+    hostname: server.hostname ?? options?.hostname ?? "0.0.0.0",
+    port: server.port ?? options?.port ?? 8000,
+    stop: (force) => server.stop(force),
+  };
+  options?.signal?.addEventListener("abort", () => void handle.stop(), {
+    once: true,
+  });
+  options?.onListen?.({ hostname: handle.hostname, port: handle.port });
+  return handle;
 }

@@ -1,0 +1,45 @@
+{
+  "name": "@fishenv/http",
+  "version": "0.0.2",
+  "description": "Type-safe HTTP router for Bun with valibot validation, contracts and Server-Sent Events.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/core/index.d.ts",
+      "default": "./dist/core/index.js"
+    },
+    "./sse": {
+      "types": "./dist/sse/index.d.ts",
+      "default": "./dist/sse/index.js"
+    },
+    "./contract": {
+      "types": "./dist/contract/index.d.ts",
+      "default": "./dist/contract/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "test": "bun test",
+    "check": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "bun run build"
+  },
+  "dependencies": {
+    "valibot": "^1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@types/bun": "^1.4.3",
+    "typescript": "^7.0.2"
+  }
+}

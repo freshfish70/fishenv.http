@@ -27,6 +27,24 @@
  * - `router.ts`        — `withSse()` mixin
  */
 
+// Connection
+export { SseConnection } from "./connection.ts";
+
+// Framing
+export { encodeSseComment, encodeSseEvent, encodeSseRetry } from "./encode.ts";
+// Hub
+export { SseHub } from "./hub.ts";
+export type { SseOpenFn } from "./response.ts";
+// Response
+export { createSseResponse } from "./response.ts";
+export type { SseHandlerArgs, SseHandlerFn } from "./route-builder.ts";
+
+// Route builder
+export { SseRouteBuilder } from "./route-builder.ts";
+export type { SseRouter } from "./router.ts";
+
+// Router mixin
+export { withSse } from "./router.ts";
 // Types
 export type {
   SseCleanupFn,
@@ -37,24 +55,3 @@ export type {
   SseTransport,
   SseTransportMessage,
 } from "./types.ts";
-
-// Framing
-export { encodeSseComment, encodeSseEvent, encodeSseRetry } from "./encode.ts";
-
-// Connection
-export { SseConnection } from "./connection.ts";
-
-// Response
-export { createSseResponse } from "./response.ts";
-export type { SseOpenFn } from "./response.ts";
-
-// Hub
-export { SseHub } from "./hub.ts";
-
-// Route builder
-export { SseRouteBuilder } from "./route-builder.ts";
-export type { SseHandlerArgs, SseHandlerFn } from "./route-builder.ts";
-
-// Router mixin
-export { withSse } from "./router.ts";
-export type { SseRouter } from "./router.ts";

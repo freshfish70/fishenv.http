@@ -1,42 +1,41 @@
-import { assertEquals } from "@std/assert";
-import { assertType, type IsExact } from "@std/testing/types";
+import { expect, expectTypeOf, test } from "bun:test";
 import * as v from "valibot";
-import { c, type ContractShape } from "./mod.ts";
+import { type ContractShape, c } from "./index.ts";
 
-Deno.test("c.post — builds a definition snapshot", () => {
+test("c.post — builds a definition snapshot", () => {
   const CreateUser = v.object({ name: v.string() });
   const endpoint = c.post("/users").input("json", { body: CreateUser });
   const def = endpoint._definition;
 
-  assertEquals(def.method, "POST");
-  assertEquals(def.path, "/users");
-  assertEquals(def.inputKind, "json");
-  assertEquals(def.inputOptions.body, CreateUser);
+  expect(def.method).toEqual("POST");
+  expect(def.path).toEqual("/users");
+  expect(def.inputKind).toEqual("json");
+  expect(def.inputOptions.body).toEqual(CreateUser);
 });
 
-Deno.test("c.get — param schema narrows path param type", () => {
+test("c.get — param schema narrows path param type", () => {
   const NumericId = v.pipe(v.string(), v.transform(Number));
   const endpoint = c.get("/users/:id").param("id", NumericId);
   const def = endpoint._definition;
 
-  assertEquals(def.paramSchemas.get("id"), NumericId);
+  expect(def.paramSchemas.get("id")).toEqual(NumericId);
 
   type Shape = ContractShape<typeof endpoint>;
-  assertType<IsExact<Shape["params"], { id: number }>>(true);
+  expectTypeOf<Shape["params"]>().branded.toEqualTypeOf<{ id: number }>();
 });
 
-Deno.test("c.get — output schema is reflected in ContractShape", () => {
+test("c.get — output schema is reflected in ContractShape", () => {
   const UserSchema = v.object({ id: v.number(), name: v.string() });
   const endpoint = c.get("/users/:id").output(UserSchema);
 
   type Shape = ContractShape<typeof endpoint>;
-  assertType<IsExact<Shape["output"], { id: number; name: string }>>(true);
+  expectTypeOf<Shape["output"]>().toEqualTypeOf<{ id: number; name: string }>();
 });
 
-Deno.test("builders are immutable — each call returns a distinct instance", () => {
+test("builders are immutable — each call returns a distinct instance", () => {
   const base = c.get("/users");
   const withOutput = base.output(v.object({ ok: v.boolean() }));
 
-  assertEquals(base === (withOutput as unknown), false);
-  assertEquals(base._definition.outputSchema, undefined);
+  expect(base === (withOutput as unknown)).toEqual(false);
+  expect(base._definition.outputSchema).toEqual(undefined);
 });

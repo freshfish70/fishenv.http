@@ -1,7 +1,6 @@
-import { assertEquals } from "@std/assert";
-import { assertType, type IsExact } from "@std/testing/types";
+import { expect, expectTypeOf, test } from "bun:test";
 import * as v from "valibot";
-import { c } from "@fishenv/http-contract";
+import { c } from "../contract/index.ts";
 import { r } from "./router.ts";
 
 const BASE = "http://localhost";
@@ -34,93 +33,87 @@ const usersContract = {
   get: c.get("/users/:id").param("id", NumericId).output(UserOutputSchema),
 };
 
-Deno.test(
-  "router.contract() — registers a route matching the contract",
-  async () => {
-    const app = r();
+test("router.contract() — registers a route matching the contract", async () => {
+  const app = r();
 
-    app.contract(usersContract.create).handle(({ body }) => {
-      assertType<IsExact<typeof body, { name: string; email: string }>>(true);
-      return { id: "u1", ...body };
-    });
+  app.contract(usersContract.create).handle(({ body }) => {
+    expectTypeOf<typeof body>().toEqualTypeOf<{
+      name: string;
+      email: string;
+    }>();
+    return { id: "u1", ...body };
+  });
 
-    app.build();
+  app.build();
 
-    const res = await app.fetch(
-      req("/users", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: "Alice", email: "alice@example.com" }),
-      }),
-    );
+  const res = await app.fetch(
+    req("/users", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Alice", email: "alice@example.com" }),
+    }),
+  );
 
-    assertEquals(res.status, 200);
-    assertEquals(await res.json(), {
-      id: "u1",
-      name: "Alice",
-      email: "alice@example.com",
-    });
-  },
-);
+  expect(res.status).toEqual(200);
+  expect(await res.json()).toEqual({
+    id: "u1",
+    name: "Alice",
+    email: "alice@example.com",
+  });
+});
 
-Deno.test("router.contract() — path param schema is coerced", async () => {
+test("router.contract() — path param schema is coerced", async () => {
   const app = r();
 
   app.contract(usersContract.get).handle(({ path }) => {
-    assertType<IsExact<typeof path, { id: number }>>(true);
+    expectTypeOf<typeof path>().branded.toEqualTypeOf<{ id: number }>();
     return { id: String(path.id), name: "Bob", email: "bob@example.com" };
   });
 
   app.build();
 
   const res = await app.fetch(req("/users/42"));
-  assertEquals(res.status, 200);
-  assertEquals(await res.json(), {
+  expect(res.status).toEqual(200);
+  expect(await res.json()).toEqual({
     id: "42",
     name: "Bob",
     email: "bob@example.com",
   });
 });
 
-Deno.test(
-  "router.contract() — invalid body is rejected per contract schema",
-  async () => {
-    const app = r();
-    app.contract(usersContract.create).handle(({ body }) => ({
-      id: "u1",
-      ...body,
-    }));
-    app.build();
+test("router.contract() — invalid body is rejected per contract schema", async () => {
+  const app = r();
+  app.contract(usersContract.create).handle(({ body }) => ({
+    id: "u1",
+    ...body,
+  }));
+  app.build();
 
-    const res = await app.fetch(
-      req("/users", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: "", email: "not-an-email" }),
-      }),
+  const res = await app.fetch(
+    req("/users", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "", email: "not-an-email" }),
+    }),
+  );
+
+  expect(res.status).toEqual(400);
+});
+
+test("router.contract() — still supports .catch() and router prefix", async () => {
+  const app = r({ prefix: "/api" });
+  app
+    .contract(usersContract.get)
+    .handle(() => {
+      throw new Error("boom");
+    })
+    .catch(
+      (_err, { req }) =>
+        new Response(`caught:${new URL(req.url).pathname}`, { status: 500 }),
     );
+  app.build();
 
-    assertEquals(res.status, 400);
-  },
-);
-
-Deno.test(
-  "router.contract() — still supports .catch() and router prefix",
-  async () => {
-    const app = r({ prefix: "/api" });
-    app
-      .contract(usersContract.get)
-      .handle(() => {
-        throw new Error("boom");
-      })
-      .catch(
-        (_err, { req }) =>
-          new Response(`caught:${new URL(req.url).pathname}`, { status: 500 }),
-      );
-    app.build();
-
-    const res = await app.fetch(req("/api/users/1"));
-    assertEquals(res.status, 500);
-    assertEquals(await res.text(), "caught:/api/users/1");
-  },
-);
+  const res = await app.fetch(req("/api/users/1"));
+  expect(res.status).toEqual(500);
+  expect(await res.text()).toEqual("caught:/api/users/1");
+});

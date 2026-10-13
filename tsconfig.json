@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "types": ["bun"],
+    "paths": {
+      "@fishenv/http": ["./core/index.ts"],
+      "@fishenv/http/sse": ["./sse/index.ts"],
+      "@fishenv/http/contract": ["./contract/index.ts"]
+    }
+  },
+  "include": ["core", "sse", "contract", "examples"]
+}

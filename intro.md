@@ -1,6 +1,6 @@
 # fishenv.http
 
-A HTTP server/library built with Deno and TypeScript. It is designed to be
+A HTTP server/library built with Bun and TypeScript. It is designed to be
 simple, efficient, and easy to use for building web applications and APIs.
 
 It is an opinionated framework that provides a set of tools and conventions for
@@ -19,7 +19,7 @@ customization. The main features of `fishenv.http` include:
 - Performance: Designed for high performance, with efficient handling of
   requests and responses, and support for asynchronous operations. Overall,
   `fishenv.http` aims to provide a solid foundation for building web
-  applications and APIs with Deno, while keeping the development process simple
+  applications and APIs with Bun, while keeping the development process simple
   and enjoyable.
 
 # Routing
@@ -295,12 +295,12 @@ having to pass it explicitly through function parameters.
 # Contracts & Typesafe Clients
 
 `fishenv.http` supports defining an API's shape as portable, isolated data via
-`@fishenv/http-contract` — no server dependencies (no DI, middleware, `Deno.serve`),
+`@fishenv/http/contract` — no server dependencies (no DI, middleware, `Bun.serve`),
 just method/path/input/output. A contract endpoint is built the same way a
 route is:
 
 ```typescript
-import { c } from "@fishenv/http-contract";
+import { c } from "@fishenv/http/contract";
 import * as v from "valibot";
 
 export const contract = {
@@ -321,7 +321,7 @@ router.contract(contract.users.create).handle(({ body }) => {
 });
 ```
 
-Because `@fishenv/http-contract` has no dependency on `@fishenv/http` (the
+Because `@fishenv/http/contract` has no dependency on `@fishenv/http` (the
 relationship is one-directional: `core` depends on `contract`, never the
 other way around), a contract package can be published/shared on its own and
 consumed by a frontend to build a fully typesafe client, or by tooling (e.g.
@@ -378,14 +378,12 @@ will help to ensure that the framework is compatible with existing tools and
 libraries in the ecosystem, and that it follows best practices for web
 development.
 
-We use the Deno runtime for this project, which provides a secure and modern
-environment for building web applications and APIs. Deno's built-in support for
-TypeScript, its standard library, and its focus on security and performance make
-it an ideal choice for this project. We use DENO 2.7+ to take advantage of the
-latest features.
+We use the Bun runtime for this project. Bun runs TypeScript natively, ships a
+fast built-in HTTP server, test runner and package manager, and implements the
+web-standard `Request`/`Response`/`ReadableStream` APIs the library is built on.
+The package is published to npm as compiled JavaScript with `.d.ts` types.
 
-- https://docs.deno.com/api/deno/~/Deno.serve
-- https://docs.deno.com/examples/http_server_files/
-- https://docs.deno.com/examples/http_server_streaming/
-- https://docs.deno.com/examples/http_server_websocket/
-- https://docs.deno.com/examples/file_server_tutorial/
+- https://bun.com/docs/api/http
+- https://bun.com/docs/api/file-io
+- https://bun.com/docs/api/websockets
+- https://bun.com/docs/cli/test

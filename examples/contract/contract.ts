@@ -5,7 +5,7 @@
  * so it can live in its own package/repo and be shared between the API and
  * any consumer (frontend client, OpenAPI generator, ...).
  */
-import { c } from "@fishenv/http-contract";
+import { c } from "@fishenv/http/contract";
 import * as v from "valibot";
 
 const CreateUserSchema = v.object({

@@ -1,6 +1,6 @@
-import { assertEquals, assertRejects } from "@std/assert";
-import { describe, it } from "@std/testing/bdd";
+import { describe, expect, it } from "bun:test";
 import * as v from "valibot";
+import { BadRequestError, HttpError, ValidationError } from "./error.ts";
 import {
   extractHeaders,
   extractQuery,
@@ -8,9 +8,8 @@ import {
   parseCookies,
   parseInput,
 } from "./request.ts";
-import { validateField, validatePathParams } from "./validation.ts";
-import { BadRequestError, HttpError, ValidationError } from "./error.ts";
 import type { RouteDefinition } from "./types.ts";
+import { validateField, validatePathParams } from "./validation.ts";
 
 const BASE = "http://localhost";
 
@@ -21,33 +20,33 @@ describe("parseCookies", () => {
     const req = new Request(BASE, {
       headers: { cookie: "session=abc123" },
     });
-    assertEquals(parseCookies(req), { session: "abc123" });
+    expect(parseCookies(req)).toEqual({ session: "abc123" });
   });
 
   it("parses multiple cookies", () => {
     const req = new Request(BASE, {
       headers: { cookie: "a=1; b=2; c=3" },
     });
-    assertEquals(parseCookies(req), { a: "1", b: "2", c: "3" });
+    expect(parseCookies(req)).toEqual({ a: "1", b: "2", c: "3" });
   });
 
   it("handles URL-encoded values", () => {
     const req = new Request(BASE, {
       headers: { cookie: "name=hello%20world" },
     });
-    assertEquals(parseCookies(req), { name: "hello world" });
+    expect(parseCookies(req)).toEqual({ name: "hello world" });
   });
 
   it("handles values with equals signs", () => {
     const req = new Request(BASE, {
       headers: { cookie: "token=abc=def=ghi" },
     });
-    assertEquals(parseCookies(req), { token: "abc=def=ghi" });
+    expect(parseCookies(req)).toEqual({ token: "abc=def=ghi" });
   });
 
   it("returns empty object for no cookie header", () => {
     const req = new Request(BASE);
-    assertEquals(parseCookies(req), {});
+    expect(parseCookies(req)).toEqual({});
   });
 });
 
@@ -59,8 +58,8 @@ describe("extractHeaders", () => {
       headers: { "Content-Type": "application/json", "X-Custom": "val" },
     });
     const h = extractHeaders(req);
-    assertEquals(h["content-type"], "application/json");
-    assertEquals(h["x-custom"], "val");
+    expect(h["content-type"]).toEqual("application/json");
+    expect(h["x-custom"]).toEqual("val");
   });
 });
 
@@ -69,17 +68,17 @@ describe("extractHeaders", () => {
 describe("extractQuery", () => {
   it("extracts single-value params", () => {
     const req = new Request(`${BASE}?foo=bar&baz=qux`);
-    assertEquals(extractQuery(req), { foo: "bar", baz: "qux" });
+    expect(extractQuery(req)).toEqual({ foo: "bar", baz: "qux" });
   });
 
   it("duplicates become arrays", () => {
     const req = new Request(`${BASE}?tag=a&tag=b&tag=c`);
-    assertEquals(extractQuery(req), { tag: ["a", "b", "c"] });
+    expect(extractQuery(req)).toEqual({ tag: ["a", "b", "c"] });
   });
 
   it("returns empty for no query string", () => {
     const req = new Request(BASE);
-    assertEquals(extractQuery(req), {});
+    expect(extractQuery(req)).toEqual({});
   });
 });
 
@@ -93,7 +92,7 @@ describe("parseBody", () => {
       headers: { "content-type": "application/json" },
     });
     const body = await parseBody(req, "json", {});
-    assertEquals(body, { x: 1 });
+    expect(body).toEqual({ x: 1 });
   });
 
   it("json — throws BadRequestError on invalid JSON", async () => {
@@ -102,11 +101,9 @@ describe("parseBody", () => {
       body: "{broken",
       headers: { "content-type": "application/json" },
     });
-    await assertRejects(
-      () => parseBody(req, "json", {}),
-      BadRequestError,
-      "Invalid JSON",
-    );
+    const result = parseBody(req, "json", {});
+    await expect(result).rejects.toBeInstanceOf(BadRequestError);
+    await expect(result).rejects.toThrow("Invalid JSON");
   });
 
   it("text — returns string", async () => {
@@ -115,7 +112,7 @@ describe("parseBody", () => {
       body: "hello world",
     });
     const body = await parseBody(req, "text", {});
-    assertEquals(body, "hello world");
+    expect(body).toEqual("hello world");
   });
 
   it("blob — returns Blob", async () => {
@@ -124,13 +121,13 @@ describe("parseBody", () => {
       body: new Blob(["data"]),
     });
     const body = await parseBody(req, "blob", {});
-    assertEquals(body instanceof Blob, true);
+    expect(body instanceof Blob).toEqual(true);
   });
 
   it("none — returns undefined", async () => {
     const req = new Request(BASE);
     const body = await parseBody(req, "none", {});
-    assertEquals(body, undefined);
+    expect(body).toEqual(undefined);
   });
 
   it("enforces maxSize via content-length", async () => {
@@ -140,11 +137,12 @@ describe("parseBody", () => {
       body: bigBody,
       headers: { "content-length": "1000" },
     });
-    await assertRejects(
-      () => parseBody(req, "blob", { maxSize: 100 } as Record<string, unknown>),
-      HttpError,
-      "Payload Too Large",
-    );
+    const result = parseBody(req, "blob", { maxSize: 100 } as Record<
+      string,
+      unknown
+    >);
+    await expect(result).rejects.toBeInstanceOf(HttpError);
+    await expect(result).rejects.toThrow("Payload Too Large");
   });
 });
 
@@ -154,7 +152,7 @@ describe("validateField", () => {
   it("returns validated output", () => {
     const schema = v.object({ name: v.string() });
     const result = validateField(schema, { name: "test" }, "body");
-    assertEquals(result, { name: "test" });
+    expect(result).toEqual({ name: "test" });
   });
 
   it("throws ValidationError on failure", () => {
@@ -163,9 +161,9 @@ describe("validateField", () => {
       validateField(schema, { name: 123 }, "body");
       throw new Error("should have thrown");
     } catch (e) {
-      assertEquals(e instanceof ValidationError, true);
-      assertEquals((e as ValidationError).field, "body");
-      assertEquals((e as ValidationError).status, 400);
+      expect(e instanceof ValidationError).toEqual(true);
+      expect((e as ValidationError).field).toEqual("body");
+      expect((e as ValidationError).status).toEqual(400);
     }
   });
 });
@@ -174,16 +172,14 @@ describe("validateField", () => {
 
 describe("validatePathParams", () => {
   it("coerces params with schemas", () => {
-    const schemas = new Map([
-      ["id", v.pipe(v.string(), v.transform(Number))],
-    ]);
+    const schemas = new Map([["id", v.pipe(v.string(), v.transform(Number))]]);
     const result = validatePathParams({ id: "42", slug: "hello" }, schemas);
-    assertEquals(result, { id: 42, slug: "hello" });
+    expect(result).toEqual({ id: 42, slug: "hello" });
   });
 
   it("passes through params without schemas", () => {
     const result = validatePathParams({ name: "alice" }, new Map());
-    assertEquals(result, { name: "alice" });
+    expect(result).toEqual({ name: "alice" });
   });
 });
 
@@ -196,12 +192,12 @@ describe("ValidationError", () => {
       validateField(schema, { email: "nope" }, "body");
     } catch (e) {
       const res = (e as ValidationError).toResponse();
-      assertEquals(res.status, 400);
+      expect(res.status).toEqual(400);
       const body = await res.json();
-      assertEquals(body.error, "ValidationError");
-      assertEquals(body.field, "body");
-      assertEquals(body.issues.length > 0, true);
-      assertEquals(typeof body.issues[0].message, "string");
+      expect(body.error).toEqual("ValidationError");
+      expect(body.field).toEqual("body");
+      expect(body.issues.length > 0).toEqual(true);
+      expect(typeof body.issues[0].message).toEqual("string");
     }
   });
 });
@@ -215,7 +211,7 @@ describe("parseInput", () => {
       body: JSON.stringify({ name: "alice" }),
       headers: {
         "content-type": "application/json",
-        "cookie": "session=xyz",
+        cookie: "session=xyz",
         "x-request-id": "req-1",
       },
     });
@@ -233,10 +229,10 @@ describe("parseInput", () => {
     };
 
     const input = await parseInput(req, def, { id: "42" });
-    assertEquals(input.body, { name: "alice" });
-    assertEquals(input.path, { id: "42" });
-    assertEquals(input.query, { page: "1" });
-    assertEquals(input.cookies, { session: "xyz" });
-    assertEquals(input.headers["x-request-id"], "req-1");
+    expect(input.body).toEqual({ name: "alice" });
+    expect(input.path).toEqual({ id: "42" });
+    expect(input.query).toEqual({ page: "1" });
+    expect(input.cookies).toEqual({ session: "xyz" });
+    expect(input.headers["x-request-id"]).toEqual("req-1");
   });
 });

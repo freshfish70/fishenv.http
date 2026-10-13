@@ -4,11 +4,7 @@ import type { HttpMethod } from "./types.ts";
 export class HttpError extends Error {
   readonly status: number;
 
-  constructor(
-    status: number,
-    message: string,
-    cause?: unknown,
-  ) {
+  constructor(status: number, message: string, cause?: unknown) {
     super(message, { cause });
     this.status = status;
     this.name = "HttpError";
@@ -81,10 +77,7 @@ export class ValidationError extends HttpError {
   readonly field: ValidationField;
   readonly issues: v.BaseIssue<unknown>[];
 
-  constructor(
-    field: ValidationField,
-    issues: v.BaseIssue<unknown>[],
-  ) {
+  constructor(field: ValidationField, issues: v.BaseIssue<unknown>[]) {
     super(400, "Validation Error");
     this.name = "ValidationError";
     this.field = field;
@@ -92,14 +85,17 @@ export class ValidationError extends HttpError {
   }
 
   override toResponse(): Response {
-    return Response.json({
-      error: "ValidationError",
-      field: this.field,
-      issues: this.issues.map((i) => ({
-        message: i.message,
-        path: i.path?.map((p) => p.key) ?? [],
-      })),
-    }, { status: 400 });
+    return Response.json(
+      {
+        error: "ValidationError",
+        field: this.field,
+        issues: this.issues.map((i) => ({
+          message: i.message,
+          path: i.path?.map((p) => p.key) ?? [],
+        })),
+      },
+      { status: 400 },
+    );
   }
 }
 

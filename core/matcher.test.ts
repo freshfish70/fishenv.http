@@ -1,12 +1,9 @@
-import { assertEquals } from "@std/assert";
-import { assertThrows } from "@std/assert";
+import { expect, test } from "bun:test";
 import { Matcher } from "./matcher.ts";
 import type { RouteDefinition } from "./types.ts";
 
 /** Minimal route definition stub for testing */
-function stubRoute(
-  overrides: Partial<RouteDefinition> = {},
-): RouteDefinition {
+function stubRoute(overrides: Partial<RouteDefinition> = {}): RouteDefinition {
   return {
     method: "GET",
     path: "/",
@@ -25,125 +22,125 @@ function stubRoute(
 // Static routes
 // ---------------------------------------------------------------------------
 
-Deno.test("Matcher — static route exact match", () => {
+test("Matcher — static route exact match", () => {
   const m = new Matcher();
   const def = stubRoute({ method: "GET", path: "/users" });
   m.add("GET", "/users", def);
   m.compile();
 
   const result = m.match("GET", "/users");
-  assertEquals(result?.definition, def);
-  assertEquals(result?.params, {});
+  expect(result?.definition).toEqual(def);
+  expect(result?.params).toEqual({});
 });
 
-Deno.test("Matcher — static route no match", () => {
+test("Matcher — static route no match", () => {
   const m = new Matcher();
   m.add("GET", "/users", stubRoute({ path: "/users" }));
   m.compile();
 
-  assertEquals(m.match("GET", "/other"), null);
+  expect(m.match("GET", "/other")).toEqual(null);
 });
 
 // ---------------------------------------------------------------------------
 // Dynamic routes
 // ---------------------------------------------------------------------------
 
-Deno.test("Matcher — single param", () => {
+test("Matcher — single param", () => {
   const m = new Matcher();
   const def = stubRoute({ method: "GET", path: "/users/:id" });
   m.add("GET", "/users/:id", def);
   m.compile();
 
   const result = m.match("GET", "/users/42");
-  assertEquals(result?.definition, def);
-  assertEquals(result?.params, { id: "42" });
+  expect(result?.definition).toEqual(def);
+  expect(result?.params).toEqual({ id: "42" });
 });
 
-Deno.test("Matcher — multiple params", () => {
+test("Matcher — multiple params", () => {
   const m = new Matcher();
   const def = stubRoute({ path: "/users/:id/posts/:pid" });
   m.add("GET", "/users/:id/posts/:pid", def);
   m.compile();
 
   const result = m.match("GET", "/users/1/posts/2");
-  assertEquals(result?.params, { id: "1", pid: "2" });
+  expect(result?.params).toEqual({ id: "1", pid: "2" });
 });
 
-Deno.test("Matcher — segment wildcard", () => {
+test("Matcher — segment wildcard", () => {
   const m = new Matcher();
   const def = stubRoute({ path: "/files/*" });
   m.add("GET", "/files/*", def);
   m.compile();
 
-  assertEquals(m.match("GET", "/files/a")?.definition, def);
-  assertEquals(m.match("GET", "/files/a")?.params, {});
-  assertEquals(m.match("GET", "/files/a/b/c"), null);
+  expect(m.match("GET", "/files/a")?.definition).toEqual(def);
+  expect(m.match("GET", "/files/a")?.params).toEqual({});
+  expect(m.match("GET", "/files/a/b/c")).toEqual(null);
 });
 
-Deno.test("Matcher — deep wildcard", () => {
+test("Matcher — deep wildcard", () => {
   const m = new Matcher();
   const def = stubRoute({ path: "/files/**" });
   m.add("GET", "/files/**", def);
   m.compile();
 
-  assertEquals(m.match("GET", "/files")?.definition, def);
-  assertEquals(m.match("GET", "/files/a/b/c")?.definition, def);
-  assertEquals(m.match("GET", "/files/a/b/c")?.params, {});
+  expect(m.match("GET", "/files")?.definition).toEqual(def);
+  expect(m.match("GET", "/files/a/b/c")?.definition).toEqual(def);
+  expect(m.match("GET", "/files/a/b/c")?.params).toEqual({});
 });
 
-Deno.test("Matcher — glob segment with alternation", () => {
+test("Matcher — glob segment with alternation", () => {
   const m = new Matcher();
   const def = stubRoute({ path: "/assets/*.{css,js}" });
   m.add("GET", "/assets/*.{css,js}", def);
   m.compile();
 
-  assertEquals(m.match("GET", "/assets/app.css")?.definition, def);
-  assertEquals(m.match("GET", "/assets/app.js")?.definition, def);
-  assertEquals(m.match("GET", "/assets/app.png"), null);
-  assertEquals(m.match("GET", "/assets/nested/app.css"), null);
+  expect(m.match("GET", "/assets/app.css")?.definition).toEqual(def);
+  expect(m.match("GET", "/assets/app.js")?.definition).toEqual(def);
+  expect(m.match("GET", "/assets/app.png")).toEqual(null);
+  expect(m.match("GET", "/assets/nested/app.css")).toEqual(null);
 });
 
-Deno.test("Matcher — optional param present", () => {
+test("Matcher — optional param present", () => {
   const m = new Matcher();
   const def = stubRoute({ path: "/users/:id?" });
   m.add("GET", "/users/:id?", def);
   m.compile();
 
   const result = m.match("GET", "/users/42");
-  assertEquals(result?.params, { id: "42" });
+  expect(result?.params).toEqual({ id: "42" });
 });
 
-Deno.test("Matcher — optional param absent", () => {
+test("Matcher — optional param absent", () => {
   const m = new Matcher();
   const def = stubRoute({ path: "/users/:id?" });
   m.add("GET", "/users/:id?", def);
   m.compile();
 
   const result = m.match("GET", "/users");
-  assertEquals(result?.definition, def);
-  assertEquals(result?.params, {});
+  expect(result?.definition).toEqual(def);
+  expect(result?.params).toEqual({});
 });
 
 // ---------------------------------------------------------------------------
 // ALL method
 // ---------------------------------------------------------------------------
 
-Deno.test("Matcher — ALL method matches any HTTP method", () => {
+test("Matcher — ALL method matches any HTTP method", () => {
   const m = new Matcher();
   const def = stubRoute({ path: "/health" });
   m.add("ALL", "/health", def);
   m.compile();
 
-  assertEquals(m.match("GET", "/health")?.definition, def);
-  assertEquals(m.match("POST", "/health")?.definition, def);
-  assertEquals(m.match("DELETE", "/health")?.definition, def);
+  expect(m.match("GET", "/health")?.definition).toEqual(def);
+  expect(m.match("POST", "/health")?.definition).toEqual(def);
+  expect(m.match("DELETE", "/health")?.definition).toEqual(def);
 });
 
 // ---------------------------------------------------------------------------
 // Priority / specificity
 // ---------------------------------------------------------------------------
 
-Deno.test("Matcher — static route takes priority over dynamic", () => {
+test("Matcher — static route takes priority over dynamic", () => {
   const m = new Matcher();
   const staticDef = stubRoute({ path: "/users/me" });
   const dynamicDef = stubRoute({ path: "/users/:id" });
@@ -151,11 +148,11 @@ Deno.test("Matcher — static route takes priority over dynamic", () => {
   m.add("GET", "/users/me", staticDef);
   m.compile();
 
-  assertEquals(m.match("GET", "/users/me")?.definition, staticDef);
-  assertEquals(m.match("GET", "/users/42")?.definition, dynamicDef);
+  expect(m.match("GET", "/users/me")?.definition).toEqual(staticDef);
+  expect(m.match("GET", "/users/42")?.definition).toEqual(dynamicDef);
 });
 
-Deno.test("Matcher — more specific dynamic route wins", () => {
+test("Matcher — more specific dynamic route wins", () => {
   const m = new Matcher();
   const specific = stubRoute({ path: "/a/:x/b/:y" });
   const wildcard = stubRoute({ path: "/a/**" });
@@ -163,10 +160,10 @@ Deno.test("Matcher — more specific dynamic route wins", () => {
   m.add("GET", "/a/:x/b/:y", specific);
   m.compile();
 
-  assertEquals(m.match("GET", "/a/1/b/2")?.definition, specific);
+  expect(m.match("GET", "/a/1/b/2")?.definition).toEqual(specific);
 });
 
-Deno.test("Matcher — param route beats segment glob", () => {
+test("Matcher — param route beats segment glob", () => {
   const m = new Matcher();
   const param = stubRoute({ path: "/assets/:file" });
   const glob = stubRoute({ path: "/assets/*" });
@@ -174,10 +171,10 @@ Deno.test("Matcher — param route beats segment glob", () => {
   m.add("GET", "/assets/:file", param);
   m.compile();
 
-  assertEquals(m.match("GET", "/assets/app.css")?.definition, param);
+  expect(m.match("GET", "/assets/app.css")?.definition).toEqual(param);
 });
 
-Deno.test("Matcher — segment glob beats deep wildcard", () => {
+test("Matcher — segment glob beats deep wildcard", () => {
   const m = new Matcher();
   const segment = stubRoute({ path: "/assets/*.{css,js}" });
   const deep = stubRoute({ path: "/assets/**" });
@@ -185,34 +182,34 @@ Deno.test("Matcher — segment glob beats deep wildcard", () => {
   m.add("GET", "/assets/*.{css,js}", segment);
   m.compile();
 
-  assertEquals(m.match("GET", "/assets/app.css")?.definition, segment);
-  assertEquals(m.match("GET", "/assets/nested/app.css")?.definition, deep);
+  expect(m.match("GET", "/assets/app.css")?.definition).toEqual(segment);
+  expect(m.match("GET", "/assets/nested/app.css")?.definition).toEqual(deep);
 });
 
 // ---------------------------------------------------------------------------
 // 405 Method Not Allowed
 // ---------------------------------------------------------------------------
 
-Deno.test("Matcher — 405 when path matches but method doesn't", () => {
+test("Matcher — 405 when path matches but method doesn't", () => {
   const m = new Matcher();
   m.add("POST", "/users", stubRoute({ method: "POST", path: "/users" }));
   m.compile();
 
   const result = m.match("GET", "/users");
-  assertEquals(result?.allowedMethods, ["POST"]);
+  expect(result?.allowedMethods).toEqual(["POST"]);
 });
 
-Deno.test("Matcher — 405 with multiple allowed methods", () => {
+test("Matcher — 405 with multiple allowed methods", () => {
   const m = new Matcher();
   m.add("GET", "/users", stubRoute({ method: "GET", path: "/users" }));
   m.add("POST", "/users", stubRoute({ method: "POST", path: "/users" }));
   m.compile();
 
   const result = m.match("DELETE", "/users");
-  assertEquals(result?.allowedMethods?.sort(), ["GET", "POST"]);
+  expect(result?.allowedMethods?.sort()).toEqual(["GET", "POST"]);
 });
 
-Deno.test("Matcher — 405 with glob path", () => {
+test("Matcher — 405 with glob path", () => {
   const m = new Matcher();
   m.add(
     "POST",
@@ -222,28 +219,28 @@ Deno.test("Matcher — 405 with glob path", () => {
   m.compile();
 
   const result = m.match("GET", "/assets/app.css");
-  assertEquals(result?.allowedMethods, ["POST"]);
+  expect(result?.allowedMethods).toEqual(["POST"]);
 });
 
 // ---------------------------------------------------------------------------
 // compile guard
 // ---------------------------------------------------------------------------
 
-Deno.test("Matcher — throws when adding after compile", () => {
+test("Matcher — throws when adding after compile", () => {
   const m = new Matcher();
   m.compile();
-  assertThrows(() => m.add("GET", "/x", stubRoute()), Error);
+  expect(() => m.add("GET", "/x", stubRoute())).toThrow(Error);
 });
 
 // ---------------------------------------------------------------------------
 // Case sensitivity
 // ---------------------------------------------------------------------------
 
-Deno.test("Matcher — case sensitive matching", () => {
+test("Matcher — case sensitive matching", () => {
   const m = new Matcher();
   m.add("GET", "/Users", stubRoute({ path: "/Users" }));
   m.compile();
 
-  assertEquals(m.match("GET", "/Users")?.definition !== undefined, true);
-  assertEquals(m.match("GET", "/users"), null);
+  expect(m.match("GET", "/Users")?.definition !== undefined).toEqual(true);
+  expect(m.match("GET", "/users")).toEqual(null);
 });

@@ -1,7 +1,7 @@
 /** The `withSse()` mixin that adds `.sse()` to a core `Router`. */
 
-import { createRouteBuilder } from "@fishenv/http";
-import type { BasePathParams, Router, RouterRef } from "@fishenv/http";
+import type { BasePathParams, Router, RouterRef } from "../core/index.ts";
+import { createRouteBuilder } from "../core/index.ts";
 import { SseRouteBuilder } from "./route-builder.ts";
 
 export interface SseRouter<Ctx extends Record<string, unknown>> {
@@ -17,9 +17,7 @@ export interface SseRouter<Ctx extends Record<string, unknown>> {
 export function withSse<
   Ctx extends Record<string, unknown>,
   Req extends Record<string, unknown> = Record<never, never>,
->(
-  router: Router<Ctx, Req>,
-): Router<Ctx, Req> & SseRouter<Ctx> {
+>(router: Router<Ctx, Req>): Router<Ctx, Req> & SseRouter<Ctx> {
   const target = router as Router<Ctx, Req> & SseRouter<Ctx>;
 
   Object.defineProperty(target, "sse", {

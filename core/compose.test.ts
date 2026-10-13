@@ -1,5 +1,4 @@
-import { assertEquals } from "@std/assert";
-import { assertRejects } from "@std/assert";
+import { expect, test } from "bun:test";
 import {
   coerceToResponse,
   dispatch,
@@ -20,61 +19,59 @@ const dummyReq = new Request("http://localhost/test");
 // runMiddlewarePipeline
 // ---------------------------------------------------------------------------
 
-Deno.test("runMiddlewarePipeline — empty pipeline returns base ctx", async () => {
+test("runMiddlewarePipeline — empty pipeline returns base ctx", async () => {
   const ctx = await runMiddlewarePipeline(dummyReq, [], stubContainer);
-  assertEquals(ctx.req, dummyReq);
+  expect(ctx.req).toEqual(dummyReq);
 });
 
-Deno.test("runMiddlewarePipeline — merges middleware outputs", async () => {
+test("runMiddlewarePipeline — merges middleware outputs", async () => {
   const mw1 = () => ({ user: "alice" });
   const mw2 = () => ({ role: "admin" });
 
   const ctx = await runMiddlewarePipeline(dummyReq, [mw1, mw2], stubContainer);
-  assertEquals(ctx.user, "alice");
-  assertEquals(ctx.role, "admin");
+  expect(ctx.user).toEqual("alice");
+  expect(ctx.role).toEqual("admin");
 });
 
-Deno.test("runMiddlewarePipeline — later middleware sees earlier ctx", async () => {
+test("runMiddlewarePipeline — later middleware sees earlier ctx", async () => {
   const mw1 = () => ({ count: 1 });
   const mw2 = (ctx: Record<string, unknown>) => ({
     doubled: (ctx.count as number) * 2,
   });
 
-  const ctx = await runMiddlewarePipeline(
-    dummyReq,
-    [mw1, mw2],
-    stubContainer,
-  );
-  assertEquals(ctx.doubled, 2);
+  const ctx = await runMiddlewarePipeline(dummyReq, [mw1, mw2], stubContainer);
+  expect(ctx.doubled).toEqual(2);
 });
 
-Deno.test("runMiddlewarePipeline — async middleware works", async () => {
+test("runMiddlewarePipeline — async middleware works", async () => {
   const mw = async () => {
     await Promise.resolve();
     return { async: true };
   };
 
   const ctx = await runMiddlewarePipeline(dummyReq, [mw], stubContainer);
-  assertEquals(ctx.async, true);
+  expect(ctx.async).toEqual(true);
 });
 
 // ---------------------------------------------------------------------------
 // runInterceptors
 // ---------------------------------------------------------------------------
 
-Deno.test("runInterceptors — before runs before handler", async () => {
+test("runInterceptors — before runs before handler", async () => {
   const order: string[] = [];
 
   const response = await runInterceptors(
-    [{
-      before: () => {
-        order.push("before");
+    [
+      {
+        before: () => {
+          order.push("before");
+        },
+        after: ({ response }) => {
+          order.push("after");
+          return response;
+        },
       },
-      after: ({ response }) => {
-        order.push("after");
-        return response;
-      },
-    }],
+    ],
     dummyReq,
     {},
     async () => {
@@ -83,11 +80,11 @@ Deno.test("runInterceptors — before runs before handler", async () => {
     },
   );
 
-  assertEquals(order, ["before", "handler", "after"]);
-  assertEquals(await response.text(), "ok");
+  expect(order).toEqual(["before", "handler", "after"]);
+  expect(await response.text()).toEqual("ok");
 });
 
-Deno.test("runInterceptors — after runs in reverse order", async () => {
+test("runInterceptors — after runs in reverse order", async () => {
   const order: string[] = [];
 
   await runInterceptors(
@@ -110,84 +107,88 @@ Deno.test("runInterceptors — after runs in reverse order", async () => {
     async () => new Response(),
   );
 
-  assertEquals(order, ["after-2", "after-1"]);
+  expect(order).toEqual(["after-2", "after-1"]);
 });
 
-Deno.test("runInterceptors — shared state between before and after", async () => {
+test("runInterceptors — shared state between before and after", async () => {
   let elapsed: number | undefined;
 
   await runInterceptors(
-    [{
-      before: ({ state }) => {
-        state.start = 100;
+    [
+      {
+        before: ({ state }) => {
+          state.start = 100;
+        },
+        after: ({ response, state }) => {
+          elapsed = 200 - (state.start as number);
+          return response;
+        },
       },
-      after: ({ response, state }) => {
-        elapsed = 200 - (state.start as number);
-        return response;
-      },
-    }],
+    ],
     dummyReq,
     {},
     async () => new Response(),
   );
 
-  assertEquals(elapsed, 100);
+  expect(elapsed).toEqual(100);
 });
 
-Deno.test("runInterceptors — after can modify response", async () => {
+test("runInterceptors — after can modify response", async () => {
   const response = await runInterceptors(
-    [{
-      after: ({ response }) => {
-        const headers = new Headers(response.headers);
-        headers.set("X-Custom", "yes");
-        return new Response(response.body, {
-          status: response.status,
-          headers,
-        });
+    [
+      {
+        after: ({ response }) => {
+          const headers = new Headers(response.headers);
+          headers.set("X-Custom", "yes");
+          return new Response(response.body, {
+            status: response.status,
+            headers,
+          });
+        },
       },
-    }],
+    ],
     dummyReq,
     {},
     async () => new Response("body"),
   );
 
-  assertEquals(response.headers.get("X-Custom"), "yes");
+  expect(response.headers.get("X-Custom")).toEqual("yes");
 });
 
 // ---------------------------------------------------------------------------
 // coerceToResponse
 // ---------------------------------------------------------------------------
 
-Deno.test("coerceToResponse — passes through Response", () => {
+test("coerceToResponse — passes through Response", () => {
   const def = { outputSchema: undefined } as unknown as RouteDefinition;
   const res = new Response("ok");
-  assertEquals(coerceToResponse(res, def), res);
+  expect(coerceToResponse(res, def)).toEqual(res);
 });
 
-Deno.test("coerceToResponse — serializes plain object with outputSchema", async () => {
+test("coerceToResponse — serializes plain object with outputSchema", async () => {
   const def = { outputSchema: {} } as unknown as RouteDefinition;
   const res = coerceToResponse({ id: 1 }, def);
-  assertEquals(res.status, 200);
-  assertEquals(await res.json(), { id: 1 });
+  expect(res.status).toEqual(200);
+  expect(await res.json()).toEqual({ id: 1 });
 });
 
-Deno.test("coerceToResponse — throws without outputSchema and non-Response", () => {
+test("coerceToResponse — throws without outputSchema and non-Response", () => {
   const def = { outputSchema: undefined } as unknown as RouteDefinition;
   let threw = false;
   try {
     coerceToResponse({ id: 1 }, def);
   } catch (e) {
     threw = true;
-    assertEquals(e instanceof TypeError, true);
+    expect(e instanceof TypeError).toEqual(true);
   }
-  assertEquals(threw, true);
+  expect(threw).toEqual(true);
 });
 
 // ---------------------------------------------------------------------------
 // dispatch
 // ---------------------------------------------------------------------------
 
-Deno.test("dispatch — runs full pipeline", async () => {
+test("dispatch — runs full pipeline", async () => {
   const def: RouteDefinition = {
     method: "GET",
     path: "/test",
@@ -197,26 +198,20 @@ Deno.test("dispatch — runs full pipeline", async () => {
     inputOptions: {},
     outputSchema: {} as RouteDefinition["outputSchema"],
     interceptors: [],
-    // deno-lint-ignore no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: intentional any
     handler: (({ ctx }: any) => {
       return { user: ctx.user };
     }) as any,
     kind: "http",
   };
 
-  const response = await dispatch(
-    dummyReq,
-    def,
-    {},
-    stubContainer,
-    [],
-  );
+  const response = await dispatch(dummyReq, def, {}, stubContainer, []);
 
-  assertEquals(response.status, 200);
-  assertEquals(await response.json(), { user: "alice" });
+  expect(response.status).toEqual(200);
+  expect(await response.json()).toEqual({ user: "alice" });
 });
 
-Deno.test("dispatch — error handler chain catches errors", async () => {
+test("dispatch — error handler chain catches errors", async () => {
   const def: RouteDefinition = {
     method: "GET",
     path: "/fail",
@@ -231,25 +226,19 @@ Deno.test("dispatch — error handler chain catches errors", async () => {
     kind: "http",
   };
 
-  const response = await dispatch(
-    dummyReq,
-    def,
-    {},
-    stubContainer,
-    [
-      (err) => {
-        if (err instanceof Error && err.message === "boom") {
-          return Response.json({ caught: true }, { status: 500 });
-        }
-      },
-    ],
-  );
+  const response = await dispatch(dummyReq, def, {}, stubContainer, [
+    (err) => {
+      if (err instanceof Error && err.message === "boom") {
+        return Response.json({ caught: true }, { status: 500 });
+      }
+    },
+  ]);
 
-  assertEquals(response.status, 500);
-  assertEquals(await response.json(), { caught: true });
+  expect(response.status).toEqual(500);
+  expect(await response.json()).toEqual({ caught: true });
 });
 
-Deno.test("dispatch — error falls through to default handler", async () => {
+test("dispatch — error falls through to default handler", async () => {
   const def: RouteDefinition = {
     method: "GET",
     path: "/fail",
@@ -272,7 +261,7 @@ Deno.test("dispatch — error falls through to default handler", async () => {
     [() => undefined], // passes to next
   );
 
-  assertEquals(response.status, 500);
+  expect(response.status).toEqual(500);
   const body = await response.json();
-  assertEquals(body.error, "Internal Server Error");
+  expect(body.error).toEqual("Internal Server Error");
 });

@@ -1,11 +1,10 @@
-import * as v from "valibot";
 import { NotFoundError, r } from "@fishenv/http";
+import * as v from "valibot";
 import type { AppCtx } from "../context.ts";
-import { ListTodos } from "../usecases/list-todos.ts";
 import { CreateTodo } from "../usecases/create-todo.ts";
-import { ToggleTodo } from "../usecases/toggle-todo.ts";
 import { DeleteTodo } from "../usecases/delete-todo.ts";
-import { TodoNotFoundError } from "../usecases/toggle-todo.ts";
+import { ListTodos } from "../usecases/list-todos.ts";
+import { TodoNotFoundError, ToggleTodo } from "../usecases/toggle-todo.ts";
 
 /**
  * Todo routes. Handlers pull use cases from the DI container — no direct repo access.
@@ -17,13 +16,16 @@ import { TodoNotFoundError } from "../usecases/toggle-todo.ts";
 export const todoRoutes = r<AppCtx>();
 
 // GET /todos?completed=true — logs the request id provided by AppCtx
-todoRoutes.get("/todos")
+todoRoutes
+  .get("/todos")
   .input("none", {
     query: v.object({
-      completed: v.optional(v.pipe(
-        v.string(),
-        v.transform((s) => s === "true"),
-      )),
+      completed: v.optional(
+        v.pipe(
+          v.string(),
+          v.transform((s) => s === "true"),
+        ),
+      ),
     }),
   })
   .handle(async ({ query, container, ctx }) => {
@@ -38,7 +40,8 @@ todoRoutes.get("/todos")
   });
 
 // POST /todos  { title: "..." }
-todoRoutes.post("/todos")
+todoRoutes
+  .post("/todos")
   .input("json", {
     body: v.object({
       title: v.pipe(v.string(), v.minLength(1, "Title is required")),
@@ -51,7 +54,8 @@ todoRoutes.post("/todos")
   });
 
 // PATCH /todos/:id/toggle
-todoRoutes.patch("/todos/:id/toggle")
+todoRoutes
+  .patch("/todos/:id/toggle")
   .handle(async ({ path, container }) => {
     const uc = container.get(ToggleTodo);
     const todo = await uc.execute(path.id);
@@ -65,7 +69,8 @@ todoRoutes.patch("/todos/:id/toggle")
   });
 
 // DELETE /todos/:id
-todoRoutes.delete("/todos/:id")
+todoRoutes
+  .delete("/todos/:id")
   .handle(async ({ path, container }) => {
     const uc = container.get(DeleteTodo);
     await uc.execute(path.id);

@@ -5,7 +5,7 @@ import type * as v from "valibot";
  * consumers (the API itself, an OpenAPI generator, a typed client, ...).
  *
  * This module has zero server-runtime dependencies (no DI, no middleware, no
- * `Deno.serve`) — it only describes *what* an endpoint looks like: method,
+ * `Bun.serve`) — it only describes *what* an endpoint looks like: method,
  * path, input, output. `@fishenv/http` (the `core` package) depends on this
  * package to build its route registration API; this package must never
  * depend back on `core`.

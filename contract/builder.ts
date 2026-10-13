@@ -51,7 +51,9 @@ export class ContractBuilder<
   #inputKind: InputKind;
   #inputOptions: InputOptions<InputKind>;
   #outputSchema?: AnySchema;
-  #errorTypes?: (new (...args: unknown[]) => Error)[];
+  #errorTypes?: (new (
+    ...args: unknown[]
+  ) => Error)[];
   #meta?: RouteMeta;
 
   constructor(
@@ -178,18 +180,27 @@ export class ContractBuilder<
  * Recovers the compile-time shape (input/output/params) of a `ContractBuilder`.
  * Used by consumers to derive their own generics from a contract endpoint.
  */
-export type ContractShape<C> = C extends ContractBuilder<
-  infer M,
-  infer P,
-  infer K,
-  infer O,
-  infer Params,
-  infer Output
-> ? { method: M; path: P; inputKind: K; inputOptions: O; params: Params; output: Output }
-  : never;
+export type ContractShape<C> =
+  C extends ContractBuilder<
+    infer M,
+    infer P,
+    infer K,
+    infer O,
+    infer Params,
+    infer Output
+  >
+    ? {
+        method: M;
+        path: P;
+        inputKind: K;
+        inputOptions: O;
+        params: Params;
+        output: Output;
+      }
+    : never;
 
 /** Loosest possible `ContractBuilder` — use as a generic constraint. */
-// deno-lint-ignore no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: intentional any
 export type AnyContractBuilder = ContractBuilder<any, any, any, any, any, any>;
 
 function endpoint<M extends HttpMethod>(method: M) {

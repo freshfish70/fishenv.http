@@ -11,7 +11,7 @@
  *   - a frontend client, to build a typesafe RPC client
  *   - an OpenAPI generator, to build docs
  *
- * Run: deno run --allow-net examples/contract/main.ts
+ * Run: bun examples/contract/main.ts
  *
  * Try:
  *   curl localhost:3004/api/users -X POST -H "Content-Type: application/json" \

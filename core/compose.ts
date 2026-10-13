@@ -1,3 +1,5 @@
+import { defaultErrorHandler } from "./error.ts";
+import { parseInput } from "./request.ts";
 import type {
   DIContainer,
   ErrorHandlerFn,
@@ -5,8 +7,6 @@ import type {
   MiddlewareFn,
   RouteDefinition,
 } from "./types.ts";
-import { defaultErrorHandler } from "./error.ts";
-import { parseInput } from "./request.ts";
 
 /**
  * Run the middleware pipeline, accumulating context via object spread.
@@ -59,10 +59,7 @@ export async function runInterceptors(
  * - If output schema is defined, serialize as JSON.
  * - Otherwise throw — handler contract violation.
  */
-export function coerceToResponse(
-  raw: unknown,
-  def: RouteDefinition,
-): Response {
+export function coerceToResponse(raw: unknown, def: RouteDefinition): Response {
   if (raw instanceof Response) return raw;
   if (def.outputSchema != null) return Response.json(raw);
   throw new TypeError(
