@@ -10,10 +10,38 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # The OIDC ID token is used for authentication with JSR.
+      id-token: write # OIDC token for npm trusted publishing + provenance.
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 1
-      - name: Publish to JSR
-        run: npx jsr publish
+
+      - uses: oven-sh/setup-bun@v2
+
+      # npm >= 11.5 is required for trusted publishing (OIDC, no token).
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run check
+      - run: bun test
+      - run: bun run build
+
+      - name: Skip if this version is already published
+        id: version
+        run: |
+          name=$(node -p 'require("./package.json").name')
+          version=$(node -p 'require("./package.json").version')
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version already on npm, skipping"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm
+        if: steps.version.outputs.publish == 'true'
+        run: npm publish --provenance --access public
