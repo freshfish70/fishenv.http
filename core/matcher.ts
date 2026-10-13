@@ -35,9 +35,8 @@ function hasPatternSyntax(path: string): boolean {
 }
 
 export class Matcher implements RouterMatcher {
-  #rawRoutes: Array<
-    { method: string; path: string; def: RouteDefinition }
-  > = [];
+  #rawRoutes: Array<{ method: string; path: string; def: RouteDefinition }> =
+    [];
   #compiled = false;
 
   // Per method: static map + dynamic list
@@ -71,8 +70,9 @@ export class Matcher implements RouterMatcher {
     }
     // Sort dynamic routes: higher specificity first
     for (const list of this.#dynamicRoutes.values()) {
-      list.sort((a, b) =>
-        specificity(b.definition.path) - specificity(a.definition.path)
+      list.sort(
+        (a, b) =>
+          specificity(b.definition.path) - specificity(a.definition.path),
       );
     }
     this.#compiled = true;
@@ -82,7 +82,8 @@ export class Matcher implements RouterMatcher {
     method = method.toUpperCase();
 
     // Check static routes (exact method, then ALL)
-    const def = this.#staticRoutes.get(method)?.get(path) ??
+    const def =
+      this.#staticRoutes.get(method)?.get(path) ??
       this.#staticRoutes.get("ALL")?.get(path);
     if (def) return { definition: def, params: {} };
 

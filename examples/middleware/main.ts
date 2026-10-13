@@ -5,7 +5,7 @@
  * sub-routers with additional middleware via extend().use(),
  * route-level middleware with .with(), and interceptors for timing.
  *
- * Run: deno run --allow-net examples/middleware/main.ts
+ * Run: bun examples/middleware/main.ts
  *
  * Try:
  *   curl localhost:3002/api/health
@@ -14,8 +14,9 @@
  *   curl localhost:3002/api/admin/users -H "Authorization: Bearer tok_alice"
  *   curl -i localhost:3002/api/slow -H "Authorization: Bearer tok_alice"
  */
-import { ForbiddenError, r, serve, UnauthorizedError } from "@fishenv/http";
+
 import type { MiddlewareFn } from "@fishenv/http";
+import { ForbiddenError, r, serve, UnauthorizedError } from "@fishenv/http";
 
 // ── Middleware definitions ──────────────────────────────────────────────
 
@@ -51,22 +52,25 @@ const AdminGuard: MiddlewareFn<
 const app = r({ prefix: "/api" }).use(RequestId);
 
 // Public — no auth required
-app.get("/health").handle(({ ctx }) =>
-  Response.json({ ok: true, requestId: ctx.requestId })
-);
+app
+  .get("/health")
+  .handle(({ ctx }) => Response.json({ ok: true, requestId: ctx.requestId }));
 
 // Authenticated section — extend() + .use(Auth) adds auth to all child routes
 const authed = app.extend().use(Auth);
 
-authed.get("/me").handle(({ ctx }) =>
-  Response.json({ user: ctx.user, requestId: ctx.requestId })
-);
+authed
+  .get("/me")
+  .handle(({ ctx }) =>
+    Response.json({ user: ctx.user, requestId: ctx.requestId }),
+  );
 
 // Route-level middleware with .with() — only this route gets viewedAt
-authed.get("/profile")
+authed
+  .get("/profile")
   .with(() => ({ viewedAt: new Date().toISOString() }))
   .handle(({ ctx }) =>
-    Response.json({ user: ctx.user, viewedAt: ctx.viewedAt })
+    Response.json({ user: ctx.user, viewedAt: ctx.viewedAt }),
   );
 
 // Admin section — another extend().use() layer on top of authed
@@ -80,12 +84,13 @@ admin.get("/users").handle(({ ctx }) =>
       { id: "u_1", name: "Alice" },
       { id: "u_2", name: "Bob" },
     ],
-  })
+  }),
 );
 
 // ── Interceptors — request timing ──────────────────────────────────────
 
-authed.get("/slow")
+authed
+  .get("/slow")
   .intercept(
     ({ state }) => {
       state.start = performance.now();

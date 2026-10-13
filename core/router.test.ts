@@ -1,6 +1,5 @@
-import { assertEquals, assertRejects } from "@std/assert";
-import { describe, it } from "@std/testing/bdd";
-import { type CtxOf, r, Router, type serve } from "./router.ts";
+import { describe, expect, it } from "bun:test";
+import { type CtxOf, Router, r, type serve } from "./router.ts";
 import type { MiddlewareFn } from "./types.ts";
 
 const BASE = "http://localhost";
@@ -14,7 +13,7 @@ function req(path: string, method = "GET"): Request {
 describe("r() factory", () => {
   it("creates a Router instance", () => {
     const app = r();
-    assertEquals(app instanceof Router, true);
+    expect(app instanceof Router).toEqual(true);
   });
 
   it("accepts a prefix option", () => {
@@ -34,8 +33,8 @@ describe("Router routing", () => {
     app.build();
 
     const res = await app.fetch(req("/hello"));
-    assertEquals(res.status, 200);
-    assertEquals(await res.text(), "world");
+    expect(res.status).toEqual(200);
+    expect(await res.text()).toEqual("world");
   });
 
   it("POST route works", async () => {
@@ -44,7 +43,7 @@ describe("Router routing", () => {
     app.build();
 
     const res = await app.fetch(req("/items", "POST"));
-    assertEquals(res.status, 201);
+    expect(res.status).toEqual(201);
   });
 
   it("all HTTP method helpers work", async () => {
@@ -71,7 +70,7 @@ describe("Router routing", () => {
 
     for (const m of methods) {
       const res = await app.fetch(req(`/${m}`, m));
-      assertEquals(await res.text(), m);
+      expect(await res.text()).toEqual(m);
     }
   });
 
@@ -81,7 +80,7 @@ describe("Router routing", () => {
     app.build();
 
     const res = await app.fetch(req("/users/42"));
-    assertEquals(await res.json(), { id: "42" });
+    expect(await res.json()).toEqual({ id: "42" });
   });
 
   it("prefix is prepended to route paths", async () => {
@@ -90,8 +89,8 @@ describe("Router routing", () => {
     app.build();
 
     const res = await app.fetch(req("/api/health"));
-    assertEquals(res.status, 200);
-    assertEquals(await res.text(), "ok");
+    expect(res.status).toEqual(200);
+    expect(await res.text()).toEqual("ok");
   });
 });
 
@@ -104,7 +103,7 @@ describe("Router 404 / 405", () => {
     app.build();
 
     const res = await app.fetch(req("/nope"));
-    assertEquals(res.status, 404);
+    expect(res.status).toEqual(404);
   });
 
   it("returns 405 when path matches but method doesn't", async () => {
@@ -113,8 +112,8 @@ describe("Router 404 / 405", () => {
     app.build();
 
     const res = await app.fetch(req("/items", "DELETE"));
-    assertEquals(res.status, 405);
-    assertEquals(res.headers.get("allow")?.includes("GET"), true);
+    expect(res.status).toEqual(405);
+    expect(res.headers.get("allow")?.includes("GET")).toEqual(true);
   });
 
   it("custom notFound handler", async () => {
@@ -124,8 +123,8 @@ describe("Router 404 / 405", () => {
     app.build();
 
     const res = await app.fetch(req("/missing"));
-    assertEquals(res.status, 404);
-    assertEquals((await res.json()).custom, true);
+    expect(res.status).toEqual(404);
+    expect((await res.json()).custom).toEqual(true);
   });
 });
 
@@ -134,17 +133,18 @@ describe("Router 404 / 405", () => {
 describe("Router HEAD fallback", () => {
   it("HEAD returns GET response with no body", async () => {
     const app = r();
-    app.get("/data").handle(() =>
-      new Response("payload", {
-        headers: { "x-custom": "yes" },
-      })
+    app.get("/data").handle(
+      () =>
+        new Response("payload", {
+          headers: { "x-custom": "yes" },
+        }),
     );
     app.build();
 
     const res = await app.fetch(req("/data", "HEAD"));
-    assertEquals(res.status, 200);
-    assertEquals(res.headers.get("x-custom"), "yes");
-    assertEquals(await res.text(), ""); // body stripped
+    expect(res.status).toEqual(200);
+    expect(res.headers.get("x-custom")).toEqual("yes");
+    expect(await res.text()).toEqual(""); // body stripped
   });
 });
 
@@ -152,17 +152,21 @@ describe("Router HEAD fallback", () => {
 
 describe("Router middleware", () => {
   it(".use() middleware runs and extends context", async () => {
-    const addRole: MiddlewareFn<Record<string, unknown>, { role: string }> =
-      () => ({ role: "admin" });
+    const addRole: MiddlewareFn<
+      Record<string, unknown>,
+      { role: string }
+    > = () => ({ role: "admin" });
 
     const app = r().use(addRole);
-    app.get("/me").handle(({ ctx }) =>
-      Response.json({ role: (ctx as { role: string }).role })
-    );
+    app
+      .get("/me")
+      .handle(({ ctx }) =>
+        Response.json({ role: (ctx as { role: string }).role }),
+      );
     app.build();
 
     const res = await app.fetch(req("/me"));
-    assertEquals((await res.json()).role, "admin");
+    expect((await res.json()).role).toEqual("admin");
   });
 
   it("chained .use() accumulates context", async () => {
@@ -177,8 +181,8 @@ describe("Router middleware", () => {
 
     const res = await app.fetch(req("/ab"));
     const body = await res.json();
-    assertEquals(body.a, 1);
-    assertEquals(body.b, 2);
+    expect(body.a).toEqual(1);
+    expect(body.b).toEqual(2);
   });
 
   it(".use() shares route store — routes on derived router visible to original", async () => {
@@ -193,9 +197,9 @@ describe("Router middleware", () => {
     base.build();
 
     const r1 = await base.fetch(req("/api/public"));
-    assertEquals(await r1.text(), "pub");
+    expect(await r1.text()).toEqual("pub");
     const r2 = await base.fetch(req("/api/private"));
-    assertEquals(await r2.text(), "priv");
+    expect(await r2.text()).toEqual("priv");
   });
 });
 
@@ -212,46 +216,53 @@ describe("Router extend()", () => {
     app.build();
 
     const r1 = await app.fetch(req("/api/health"));
-    assertEquals(await r1.text(), "ok");
+    expect(await r1.text()).toEqual("ok");
 
     const r2 = await app.fetch(req("/api/admin/stats"));
-    assertEquals(await r2.text(), "stats");
+    expect(await r2.text()).toEqual("stats");
   });
 
   it("extend().use() — child with added middleware collected by parent", async () => {
     const app = r({ prefix: "/api" });
     app.get("/health").handle(() => new Response("ok"));
 
-    const admin = app.extend({ prefix: "/admin" })
+    const admin = app
+      .extend({ prefix: "/admin" })
       .use(() => ({ isAdmin: true }));
 
-    admin.get("/stats").handle(({ ctx }) =>
-      Response.json({ admin: (ctx as { isAdmin: boolean }).isAdmin })
-    );
+    admin
+      .get("/stats")
+      .handle(({ ctx }) =>
+        Response.json({ admin: (ctx as { isAdmin: boolean }).isAdmin }),
+      );
 
     app.build();
 
     const r1 = await app.fetch(req("/api/health"));
-    assertEquals(await r1.text(), "ok");
+    expect(await r1.text()).toEqual("ok");
 
     const r2 = await app.fetch(req("/api/admin/stats"));
-    assertEquals((await r2.json()).admin, true);
+    expect((await r2.json()).admin).toEqual(true);
   });
 
   it("child inherits parent middleware", async () => {
-    const addAuth: MiddlewareFn<Record<string, unknown>, { user: string }> =
-      () => ({ user: "alice" });
+    const addAuth: MiddlewareFn<
+      Record<string, unknown>,
+      { user: string }
+    > = () => ({ user: "alice" });
 
     const app = r({ prefix: "/api" }).use(addAuth);
 
     const admin = app.extend({ prefix: "/admin" });
-    admin.get("/whoami").handle(({ ctx }) =>
-      Response.json({ user: (ctx as { user: string }).user })
-    );
+    admin
+      .get("/whoami")
+      .handle(({ ctx }) =>
+        Response.json({ user: (ctx as { user: string }).user }),
+      );
 
     app.build();
     const res = await app.fetch(req("/api/admin/whoami"));
-    assertEquals((await res.json()).user, "alice");
+    expect((await res.json()).user).toEqual("alice");
   });
 });
 
@@ -260,25 +271,28 @@ describe("Router extend()", () => {
 describe("Router error handling", () => {
   it("route-level .catch() handles errors", async () => {
     const app = r();
-    app.get("/fail").handle(() => {
-      throw new Error("boom");
-    }).catch((err) => {
-      return Response.json(
-        { caught: (err as Error).message },
-        { status: 500 },
-      );
-    });
+    app
+      .get("/fail")
+      .handle(() => {
+        throw new Error("boom");
+      })
+      .catch((err) => {
+        return Response.json(
+          { caught: (err as Error).message },
+          { status: 500 },
+        );
+      });
     app.build();
 
     const res = await app.fetch(req("/fail"));
-    assertEquals(res.status, 500);
-    assertEquals((await res.json()).caught, "boom");
+    expect(res.status).toEqual(500);
+    expect((await res.json()).caught).toEqual("boom");
   });
 
   it("router-level onError catches unhandled route errors", async () => {
     const app = r();
     app.onError((err) =>
-      Response.json({ router: (err as Error).message }, { status: 500 })
+      Response.json({ router: (err as Error).message }, { status: 500 }),
     );
     app.get("/fail").handle(() => {
       throw new Error("oops");
@@ -286,8 +300,8 @@ describe("Router error handling", () => {
     app.build();
 
     const res = await app.fetch(req("/fail"));
-    assertEquals(res.status, 500);
-    assertEquals((await res.json()).router, "oops");
+    expect(res.status).toEqual(500);
+    expect((await res.json()).router).toEqual("oops");
   });
 
   it("error chain: route catch → router onError", async () => {
@@ -297,17 +311,20 @@ describe("Router error handling", () => {
       order.push("router");
       return Response.json({ level: "router" }, { status: 500 });
     });
-    app.get("/fail").handle(() => {
-      throw new Error("err");
-    }).catch(() => {
-      order.push("route");
-      return null; // pass through to next handler
-    });
+    app
+      .get("/fail")
+      .handle(() => {
+        throw new Error("err");
+      })
+      .catch(() => {
+        order.push("route");
+        return null; // pass through to next handler
+      });
     app.build();
 
     const res = await app.fetch(req("/fail"));
-    assertEquals(order, ["route", "router"]);
-    assertEquals((await res.json()).level, "router");
+    expect(order).toEqual(["route", "router"]);
+    expect((await res.json()).level).toEqual("router");
   });
 });
 
@@ -325,11 +342,7 @@ describe("Router build()", () => {
     const app = r();
     app.get("/x").handle(() => new Response("ok"));
 
-    await assertRejects(
-      () => app.fetch(req("/x")),
-      Error,
-      "Router not built",
-    );
+    await expect(app.fetch(req("/x"))).rejects.toThrow("Router not built");
   });
 
   it("cannot add routes after build()", () => {
@@ -341,7 +354,7 @@ describe("Router build()", () => {
       app.get("/y").handle(() => new Response("no"));
       throw new Error("should have thrown");
     } catch (e) {
-      assertEquals((e as Error).message, "Cannot add routes after build()");
+      expect((e as Error).message).toEqual("Cannot add routes after build()");
     }
   });
 });
@@ -362,7 +375,7 @@ describe("Router add()", () => {
     app.build();
 
     const res = await app.fetch(req("/api/users/me"));
-    assertEquals(await res.json(), { user: "alice" });
+    expect(await res.json()).toEqual({ user: "alice" });
   });
 
   it("add(prefix, ...routers) mounts under an extra prefix", async () => {
@@ -374,9 +387,10 @@ describe("Router add()", () => {
     const app = r({ prefix: "/api" }).add("/v1", users, posts);
     app.build();
 
-    assertEquals(await (await app.fetch(req("/api/v1/users/"))).text(), "list");
-    assertEquals(
-      await (await app.fetch(req("/api/v1/posts/"))).text(),
+    expect(await (await app.fetch(req("/api/v1/users/"))).text()).toEqual(
+      "list",
+    );
+    expect(await (await app.fetch(req("/api/v1/posts/"))).text()).toEqual(
       "posts",
     );
   });
@@ -388,8 +402,8 @@ describe("Router add()", () => {
     const app = r().add("/v1", users).add("/v2", users);
     app.build();
 
-    assertEquals((await app.fetch(req("/v1/users"))).status, 200);
-    assertEquals((await app.fetch(req("/v2/users"))).status, 200);
+    expect((await app.fetch(req("/v1/users"))).status).toEqual(200);
+    expect((await app.fetch(req("/v2/users"))).status).toEqual(200);
   });
 
   it("uses the middleware of the variant add() was called on", async () => {
@@ -418,17 +432,17 @@ describe("Router add()", () => {
     base.build();
 
     await base.fetch(req("/open/x"));
-    assertEquals(order, ["a"]);
+    expect(order).toEqual(["a"]);
     order.length = 0;
     await base.fetch(req("/locked/x"));
-    assertEquals(order, ["a", "b", "child"]);
+    expect(order).toEqual(["a", "b", "child"]);
   });
 
   it("nested mounts compose prefixes and middleware", async () => {
     const leaf = r<AuthCtx & { role: string }>({ prefix: "/leaf" });
-    leaf.get("/").handle(({ ctx }) =>
-      Response.json({ user: ctx.user, role: ctx.role })
-    );
+    leaf
+      .get("/")
+      .handle(({ ctx }) => Response.json({ user: ctx.user, role: ctx.role }));
 
     const mid = r<AuthCtx>({ prefix: "/mid" })
       .use(() => ({ role: "admin" }))
@@ -438,7 +452,7 @@ describe("Router add()", () => {
     app.build();
 
     const res = await app.fetch(req("/api/mid/leaf/"));
-    assertEquals(await res.json(), { user: "alice", role: "admin" });
+    expect(await res.json()).toEqual({ user: "alice", role: "admin" });
   });
 
   it("chains child onError before parent onError", async () => {
@@ -447,22 +461,27 @@ describe("Router add()", () => {
       calls.push("child");
       return null;
     });
-    child.get("/boom").handle(() => {
-      throw new Error("boom");
-    }).catch(() => {
-      calls.push("route");
-      return null;
-    });
+    child
+      .get("/boom")
+      .handle(() => {
+        throw new Error("boom");
+      })
+      .catch(() => {
+        calls.push("route");
+        return null;
+      });
 
-    const app = r().onError(() => {
-      calls.push("root");
-      return new Response("handled", { status: 418 });
-    }).add(child);
+    const app = r()
+      .onError(() => {
+        calls.push("root");
+        return new Response("handled", { status: 418 });
+      })
+      .add(child);
     app.build();
 
     const res = await app.fetch(req("/boom"));
-    assertEquals(res.status, 418);
-    assertEquals(calls, ["route", "child", "root"]);
+    expect(res.status).toEqual(418);
+    expect(calls).toEqual(["route", "child", "root"]);
   });
 
   it("routes added to a child after build() throw", () => {
@@ -473,7 +492,7 @@ describe("Router add()", () => {
       child.get("/late").handle(() => new Response("x"));
       throw new Error("should have thrown");
     } catch (e) {
-      assertEquals((e as Error).message, "Cannot add routes after build()");
+      expect((e as Error).message).toEqual("Cannot add routes after build()");
     }
   });
 
@@ -484,7 +503,7 @@ describe("Router add()", () => {
       app.add(r());
       throw new Error("should have thrown");
     } catch (e) {
-      assertEquals((e as Error).message, "Cannot add routers after build()");
+      expect((e as Error).message).toEqual("Cannot add routers after build()");
     }
   });
 
@@ -497,7 +516,7 @@ describe("Router add()", () => {
       a.build();
       throw new Error("should have thrown");
     } catch (e) {
-      assertEquals((e as Error).message, "Router mount cycle detected");
+      expect((e as Error).message).toEqual("Router mount cycle detected");
     }
   });
 
@@ -508,8 +527,7 @@ describe("Router add()", () => {
       app.build();
       throw new Error("should have thrown");
     } catch (e) {
-      assertEquals(
-        (e as Error).message,
+      expect((e as Error).message).toEqual(
         "cors() and notFound() are only supported on the root router",
       );
     }

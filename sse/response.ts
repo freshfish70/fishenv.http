@@ -51,8 +51,8 @@ export function createSseResponse(
         })();
       },
       cancel() {
-        // Sole disconnect signal: `req.signal` also fires on *successful*
-        // delivery under Deno.serve's legacy abort semantics, which would tear
+        // Sole disconnect signal: `req.signal` semantics differ between
+        // runtimes (some abort it on *successful* delivery), which would tear
         // down healthy streams.
         connection?.close();
       },
@@ -64,7 +64,7 @@ export function createSseResponse(
     status: 200,
     headers: {
       "content-type": "text/event-stream; charset=utf-8",
-      // `no-transform` stops proxies (and Deno's own compression) from buffering.
+      // `no-transform` stops proxies (and server-side compression) from buffering.
       "cache-control": "no-cache, no-store, no-transform",
       "x-accel-buffering": "no",
     },

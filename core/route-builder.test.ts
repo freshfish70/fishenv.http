@@ -1,5 +1,4 @@
-import { assertEquals } from "@std/assert";
-import { assertType, type IsExact } from "@std/testing/types";
+import { expect, expectTypeOf, test } from "bun:test";
 import {
   createRouteBuilder,
   FinishedRoute,
@@ -39,40 +38,41 @@ function stubRouter(prefix = ""): RouterRef & { routes: RouteDefinition[] } {
 // Basic builder chain
 // ---------------------------------------------------------------------------
 
-Deno.test("RouteBuilder — handle() registers a route definition", () => {
+test("RouteBuilder — handle() registers a route definition", () => {
   const router = stubRouter();
-  const finished = createRouteBuilder(router, "GET", "/users")
-    .handle(() => new Response("ok"));
+  const finished = createRouteBuilder(router, "GET", "/users").handle(
+    () => new Response("ok"),
+  );
 
-  assertEquals(router.routes.length, 1);
-  assertEquals(router.routes[0].method, "GET");
-  assertEquals(router.routes[0].path, "/users");
-  assertEquals(router.routes[0].kind, "http");
-  assertEquals(finished instanceof FinishedRoute, true);
+  expect(router.routes.length).toEqual(1);
+  expect(router.routes[0].method).toEqual("GET");
+  expect(router.routes[0].path).toEqual("/users");
+  expect(router.routes[0].kind).toEqual("http");
+  expect(finished instanceof FinishedRoute).toEqual(true);
 });
 
-Deno.test("RouteBuilder — meta() sets metadata", () => {
+test("RouteBuilder — meta() sets metadata", () => {
   const router = stubRouter();
   createRouteBuilder(router, "POST", "/items")
     .meta({ title: "Create Item", tags: ["items"] })
     .handle(() => new Response());
 
-  assertEquals(router.routes[0].meta?.title, "Create Item");
-  assertEquals(router.routes[0].meta?.tags, ["items"]);
+  expect(router.routes[0].meta?.title).toEqual("Create Item");
+  expect(router.routes[0].meta?.tags).toEqual(["items"]);
 });
 
-Deno.test("RouteBuilder — param() records param schema", () => {
+test("RouteBuilder — param() records param schema", () => {
   const router = stubRouter();
   const schema = {} as AnySchema;
   createRouteBuilder(router, "GET", "/users/:id")
     .param("id", schema)
     .handle(() => new Response());
 
-  assertEquals(router.routes[0].paramSchemas.has("id"), true);
-  assertEquals(router.routes[0].paramSchemas.get("id"), schema);
+  expect(router.routes[0].paramSchemas.has("id")).toEqual(true);
+  expect(router.routes[0].paramSchemas.get("id")).toEqual(schema);
 });
 
-Deno.test("RouteBuilder — with() adds route-level middleware", () => {
+test("RouteBuilder — with() adds route-level middleware", () => {
   const router = stubRouter();
   const mw: MiddlewareFn<Record<string, unknown>, { user: string }> = () => ({
     user: "alice",
@@ -82,10 +82,10 @@ Deno.test("RouteBuilder — with() adds route-level middleware", () => {
     .with(mw)
     .handle(() => new Response());
 
-  assertEquals(router.routes[0].middlewares.length, 1);
+  expect(router.routes[0].middlewares.length).toEqual(1);
 });
 
-Deno.test("RouteBuilder — input() sets input kind and options", () => {
+test("RouteBuilder — input() sets input kind and options", () => {
   const router = stubRouter();
   const bodySchema = {} as AnySchema;
 
@@ -93,11 +93,11 @@ Deno.test("RouteBuilder — input() sets input kind and options", () => {
     .input("json", { body: bodySchema })
     .handle(() => new Response());
 
-  assertEquals(router.routes[0].inputKind, "json");
-  assertEquals(router.routes[0].inputOptions.body, bodySchema);
+  expect(router.routes[0].inputKind).toEqual("json");
+  expect(router.routes[0].inputOptions.body).toEqual(bodySchema);
 });
 
-Deno.test("RouteBuilder — output() sets output schema", () => {
+test("RouteBuilder — output() sets output schema", () => {
   const router = stubRouter();
   const schema = {} as AnySchema;
 
@@ -105,10 +105,10 @@ Deno.test("RouteBuilder — output() sets output schema", () => {
     .output(schema)
     .handle(() => new Response());
 
-  assertEquals(router.routes[0].outputSchema, schema);
+  expect(router.routes[0].outputSchema).toEqual(schema);
 });
 
-Deno.test("RouteBuilder — intercept() adds interceptor pair", () => {
+test("RouteBuilder — intercept() adds interceptor pair", () => {
   const router = stubRouter();
 
   createRouteBuilder(router, "GET", "/test")
@@ -120,12 +120,12 @@ Deno.test("RouteBuilder — intercept() adds interceptor pair", () => {
     )
     .handle(() => new Response());
 
-  assertEquals(router.routes[0].interceptors.length, 1);
-  assertEquals(typeof router.routes[0].interceptors[0].before, "function");
-  assertEquals(typeof router.routes[0].interceptors[0].after, "function");
+  expect(router.routes[0].interceptors.length).toEqual(1);
+  expect(typeof router.routes[0].interceptors[0].before).toEqual("function");
+  expect(typeof router.routes[0].interceptors[0].after).toEqual("function");
 });
 
-Deno.test("RouteBuilder — catch() on FinishedRoute sets error handler", () => {
+test("RouteBuilder — catch() on FinishedRoute sets error handler", () => {
   const router = stubRouter();
   const errorFn = () => new Response("error", { status: 500 });
 
@@ -133,26 +133,25 @@ Deno.test("RouteBuilder — catch() on FinishedRoute sets error handler", () => 
     .handle(() => new Response())
     .catch(errorFn);
 
-  assertEquals(router.routes[0].errorHandler, errorFn);
+  expect(router.routes[0].errorHandler).toEqual(errorFn);
 });
 
 // ---------------------------------------------------------------------------
 // Prefix merging
 // ---------------------------------------------------------------------------
 
-Deno.test("RouteBuilder — prepends router prefix to path", () => {
+test("RouteBuilder — prepends router prefix to path", () => {
   const router = stubRouter("/api/v1");
-  createRouteBuilder(router, "GET", "/users")
-    .handle(() => new Response());
+  createRouteBuilder(router, "GET", "/users").handle(() => new Response());
 
-  assertEquals(router.routes[0].path, "/api/v1/users");
+  expect(router.routes[0].path).toEqual("/api/v1/users");
 });
 
 // ---------------------------------------------------------------------------
 // Router middleware prepended
 // ---------------------------------------------------------------------------
 
-Deno.test("RouteBuilder — router middlewares prepended before route middlewares", () => {
+test("RouteBuilder — router middlewares prepended before route middlewares", () => {
   const routerMw = () => ({ fromRouter: true });
   const routeMw = () => ({ fromRoute: true });
 
@@ -173,41 +172,41 @@ Deno.test("RouteBuilder — router middlewares prepended before route middleware
     .with(routeMw)
     .handle(() => new Response());
 
-  assertEquals(router.routes[0].middlewares.length, 2);
-  assertEquals(router.routes[0].middlewares[0], routerMw);
-  assertEquals(router.routes[0].middlewares[1], routeMw);
+  expect(router.routes[0].middlewares.length).toEqual(2);
+  expect(router.routes[0].middlewares[0]).toEqual(routerMw);
+  expect(router.routes[0].middlewares[1]).toEqual(routeMw);
 });
 
 // ---------------------------------------------------------------------------
 // Immutability — type-changing methods return new instances
 // ---------------------------------------------------------------------------
 
-Deno.test("RouteBuilder — param() returns a new builder instance", () => {
+test("RouteBuilder — param() returns a new builder instance", () => {
   const router = stubRouter();
   const b1 = createRouteBuilder(router, "GET", "/users/:id");
   const b2 = b1.param("id", {} as AnySchema);
-  assertEquals(b1 !== (b2 as unknown), true);
+  expect(b1 !== (b2 as unknown)).toEqual(true);
 });
 
-Deno.test("RouteBuilder — with() returns a new builder instance", () => {
+test("RouteBuilder — with() returns a new builder instance", () => {
   const router = stubRouter();
   const b1 = createRouteBuilder(router, "GET", "/test");
   const b2 = b1.with(() => ({ x: 1 }));
-  assertEquals(b1 !== (b2 as unknown), true);
+  expect(b1 !== (b2 as unknown)).toEqual(true);
 });
 
-Deno.test("RouteBuilder — meta() returns same instance", () => {
+test("RouteBuilder — meta() returns same instance", () => {
   const router = stubRouter();
   const b1 = createRouteBuilder(router, "GET", "/test");
   const b2 = b1.meta({ title: "test" });
-  assertEquals(b1, b2);
+  expect(b1).toEqual(b2);
 });
 
 // ---------------------------------------------------------------------------
 // Compile-time type tests
 // ---------------------------------------------------------------------------
 
-Deno.test("RouteBuilder type — handler receives inferred path params", () => {
+test("RouteBuilder type — handler receives inferred path params", () => {
   const router = stubRouter();
   createRouteBuilder<Record<never, never>, "/users/:id">(
     router,
@@ -215,29 +214,29 @@ Deno.test("RouteBuilder type — handler receives inferred path params", () => {
     "/users/:id",
   ).handle((args) => {
     // args.path should have { id: string }
-    assertType<IsExact<typeof args.path.id, string>>(true);
+    expectTypeOf<typeof args.path.id>().toEqualTypeOf<string>();
     return new Response();
   });
 });
 
-Deno.test("RouteBuilder type — with() extends context type", () => {
+test("RouteBuilder type — with() extends context type", () => {
   const router = stubRouter();
   createRouteBuilder<Record<never, never>, "/test">(router, "GET", "/test")
     .with(() => ({ user: "alice" as const }))
     .handle((args) => {
-      assertType<IsExact<typeof args.ctx.user, "alice">>(true);
+      expectTypeOf<typeof args.ctx.user>().toEqualTypeOf<"alice">();
       return new Response();
     });
 });
 
-Deno.test("RouteBuilder type — chained .with() merges context", () => {
+test("RouteBuilder type — chained .with() merges context", () => {
   const router = stubRouter();
   createRouteBuilder<Record<never, never>, "/test">(router, "GET", "/test")
     .with(() => ({ a: 1 as const }))
     .with(() => ({ b: 2 as const }))
     .handle((args) => {
-      assertType<IsExact<typeof args.ctx.a, 1>>(true);
-      assertType<IsExact<typeof args.ctx.b, 2>>(true);
+      expectTypeOf<typeof args.ctx.a>().toEqualTypeOf<1>();
+      expectTypeOf<typeof args.ctx.b>().toEqualTypeOf<2>();
       return new Response();
     });
 });

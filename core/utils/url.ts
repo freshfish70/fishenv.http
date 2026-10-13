@@ -4,8 +4,8 @@
  */
 export function mergePaths(base: string, sub: string): string {
   const combined = `${base.replace(/\/+$/, "")}/${sub.replace(/^\/+/, "")}`;
-  const normalized = `/${combined.replace(/^\/+/, "")}`.replace(/\/+$/, "") ||
-    "/";
+  const normalized =
+    `/${combined.replace(/^\/+/, "")}`.replace(/\/+$/, "") || "/";
   return normalized;
 }
 
@@ -33,9 +33,10 @@ export function extractParamNames(pattern: string): string[] {
  * - `**`     → glob across path segments
  * - `{a,b}`  → alternation `(?:a|b)`
  */
-export function buildRouteRegex(
-  pattern: string,
-): { regex: RegExp; paramNames: string[] } {
+export function buildRouteRegex(pattern: string): {
+  regex: RegExp;
+  paramNames: string[];
+} {
   const paramNames: string[] = [];
   const segments = pattern.split("/").filter((s) => s !== "");
 
@@ -95,7 +96,7 @@ function globSegmentToRegex(segment: string): string {
 
       const body = segment.slice(i + 1, end);
       const parts = splitBraceParts(body).map((part) =>
-        globLiteralToRegex(part)
+        globLiteralToRegex(part),
       );
       out += parts.length > 0 ? `(?:${parts.join("|")})` : "\\{\\}";
       i = end + 1;
@@ -131,9 +132,10 @@ function findClosingBrace(str: string, start: number): number {
 }
 
 function splitBraceParts(body: string): string[] {
-  return body.split(",").map((part) => part.trim()).filter((part) =>
-    part.length > 0
-  );
+  return body
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
 }
 
 function escapeRegex(str: string): string {

@@ -9,7 +9,7 @@ import type {
   MiddlewareFn,
   RouteBuilder,
   RouteMeta,
-} from "@fishenv/http";
+} from "../core/mod.ts";
 import type { SseConnection } from "./connection.ts";
 import type { SseHub } from "./hub.ts";
 import { createSseResponse } from "./response.ts";
@@ -138,7 +138,7 @@ export class SseRouteBuilder<
    * connection under the key derived from the request.
    */
   subscribe<H extends SseHub>(
-    // deno-lint-ignore no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: intentional any
     token: abstract new (...args: any[]) => H,
     key: (args: SseHandlerArgs<RouterCtx & RouteCtx, Params>) => string,
   ): FinishedRoute {

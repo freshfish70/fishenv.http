@@ -1,9 +1,9 @@
 export {
   type AnyContractBuilder,
-  c,
   ContractBuilder,
   type ContractDefinition,
   type ContractShape,
+  c,
 } from "./builder.ts";
 
 export type {

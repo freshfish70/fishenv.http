@@ -1,10 +1,10 @@
+import { BadRequestError, HttpError } from "./error.ts";
 import type {
   AnySchema,
   InputKind,
   InputOptions,
   RouteDefinition,
 } from "./types.ts";
-import { BadRequestError, HttpError } from "./error.ts";
 import { validateField, validatePathParams } from "./validation.ts";
 
 export interface ParsedInput {
@@ -34,18 +34,15 @@ export async function parseInput(
 
   return {
     body: opts.body ? validateField(opts.body, body, "body") : body,
-    headers:
-      (opts.headers
-        ? validateField(opts.headers, headers, "headers")
-        : headers) as Record<string, string>,
-    query:
-      (opts.query
-        ? validateField(opts.query, query, "query")
-        : query) as Record<string, string | string[]>,
-    cookies:
-      (opts.cookies
-        ? validateField(opts.cookies, cookies, "cookies")
-        : cookies) as Record<string, string>,
+    headers: (opts.headers
+      ? validateField(opts.headers, headers, "headers")
+      : headers) as Record<string, string>,
+    query: (opts.query
+      ? validateField(opts.query, query, "query")
+      : query) as Record<string, string | string[]>,
+    cookies: (opts.cookies
+      ? validateField(opts.cookies, cookies, "cookies")
+      : cookies) as Record<string, string>,
     path,
   };
 }
@@ -113,7 +110,8 @@ export function parseCookies(req: Request): Record<string, string> {
   const header = req.headers.get("cookie") ?? "";
   if (!header) return {};
   return Object.fromEntries(
-    header.split(";")
+    header
+      .split(";")
       .map((pair) => pair.trim().split("="))
       .filter(([k]) => k?.length > 0)
       .map(([k, ...v]) => [k.trim(), decodeURIComponent(v.join("="))]),

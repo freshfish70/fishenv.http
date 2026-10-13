@@ -4,7 +4,7 @@
  * Shows body validation, query validation, path param coercion,
  * and how ValidationError responses look.
  *
- * Run: deno run --allow-net examples/validation/main.ts
+ * Run: bun examples/validation/main.ts
  *
  * Try:
  *   curl localhost:3003/api/users -X POST -H "Content-Type: application/json" \
@@ -32,7 +32,8 @@ const CreateUserSchema = v.object({
   age: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(150))),
 });
 
-app.post("/users")
+app
+  .post("/users")
   .input("json", { body: CreateUserSchema })
   .handle(({ body }) => {
     // body is typed as { name: string; email: string; age?: number }
@@ -52,7 +53,8 @@ const PaginationSchema = v.object({
   ),
 });
 
-app.get("/users")
+app
+  .get("/users")
   .input("none", { query: PaginationSchema })
   .handle(({ query }) => {
     // query is typed as { page: number; limit: number }
@@ -73,7 +75,8 @@ const NumericId = v.pipe(
   v.minValue(1, "ID must be positive"),
 );
 
-app.get("/users/:id")
+app
+  .get("/users/:id")
   .param("id", NumericId)
   .handle(({ path }) => {
     // path.id is typed as number (coerced from string)
@@ -88,15 +91,19 @@ const UserOutputSchema = v.object({
   email: v.string(),
 });
 
-app.get("/users/:id/profile")
+app
+  .get("/users/:id/profile")
   .param("id", NumericId)
   .output(UserOutputSchema)
-  .handle(({ path }) => // Can return a plain object — coerced to Response.json() automatically
-  ({
-    id: path.id,
-    name: `User ${path.id}`,
-    email: `user${path.id}@example.com`,
-  }));
+  .handle(
+    (
+      { path }, // Can return a plain object — coerced to Response.json() automatically
+    ) => ({
+      id: path.id,
+      name: `User ${path.id}`,
+      email: `user${path.id}@example.com`,
+    }),
+  );
 
 serve(app, {
   port: 3003,

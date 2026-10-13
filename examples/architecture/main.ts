@@ -13,7 +13,7 @@
  * Handlers never touch the repo directly. Swapping to Postgres is a
  * one-line change in container/mod.ts.
  *
- * Run: deno run --allow-net examples/architecture/main.ts
+ * Run: bun examples/architecture/main.ts
  *
  * Try:
  *   curl localhost:3004/api/todos

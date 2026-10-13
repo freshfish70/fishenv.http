@@ -1,7 +1,7 @@
-import { assertFalse } from "@std/assert";
-import type { DIContainer } from "@fishenv/http";
-import { createSseResponse } from "./response.ts";
+import { expect } from "bun:test";
+import type { DIContainer } from "../core/mod.ts";
 import type { SseConnection } from "./connection.ts";
+import { createSseResponse } from "./response.ts";
 import type { SseConnectionOptions } from "./types.ts";
 
 const decoder = new TextDecoder();
@@ -27,7 +27,7 @@ export async function readFrame(
   reader: ReadableStreamDefaultReader<Uint8Array>,
 ): Promise<string> {
   const { value, done } = await reader.read();
-  assertFalse(done, "stream ended unexpectedly");
+  expect(done).toBeFalsy();
   return decoder.decode(value);
 }
 
