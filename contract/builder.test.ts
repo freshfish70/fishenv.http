@@ -1,6 +1,6 @@
 import { expect, expectTypeOf, test } from "bun:test";
 import * as v from "valibot";
-import { type ContractShape, c } from "./mod.ts";
+import { type ContractShape, c } from "./index.ts";
 
 test("c.post — builds a definition snapshot", () => {
   const CreateUser = v.object({ name: v.string() });

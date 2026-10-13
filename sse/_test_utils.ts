@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { DIContainer } from "../core/mod.ts";
+import type { DIContainer } from "../core/index.ts";
 import type { SseConnection } from "./connection.ts";
 import { createSseResponse } from "./response.ts";
 import type { SseConnectionOptions } from "./types.ts";

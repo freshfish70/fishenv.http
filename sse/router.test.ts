@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import * as v from "valibot";
-import { r, UnauthorizedError } from "../core/mod.ts";
+import { r, UnauthorizedError } from "../core/index.ts";
 import {
   containerOf,
   readEventFrame,

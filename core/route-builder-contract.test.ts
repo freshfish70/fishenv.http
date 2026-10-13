@@ -1,6 +1,6 @@
 import { expect, expectTypeOf, test } from "bun:test";
 import * as v from "valibot";
-import { c } from "../contract/mod.ts";
+import { c } from "../contract/index.ts";
 import { r } from "./router.ts";
 
 const BASE = "http://localhost";

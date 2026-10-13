@@ -11,7 +11,7 @@
  *   main.ts     — mounts the route modules on the base router
  *
  * Handlers never touch the repo directly. Swapping to Postgres is a
- * one-line change in container/mod.ts.
+ * one-line change in container/index.ts.
  *
  * Run: bun examples/architecture/main.ts
  *
@@ -25,7 +25,7 @@
  *   curl localhost:3004/api/todos/nonexistent -X DELETE    # → 404
  */
 import { serve } from "@fishenv/http";
-import { createContainer } from "./container/mod.ts";
+import { createContainer } from "./container/index.ts";
 import { base } from "./context.ts";
 import { todoRoutes } from "./routes/todos.ts";
 

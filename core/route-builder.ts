@@ -1,4 +1,4 @@
-import type { AnyContractBuilder, ContractShape } from "../contract/mod.ts";
+import type { AnyContractBuilder, ContractShape } from "../contract/index.ts";
 import type {
   AfterInterceptorFn,
   AnySchema,

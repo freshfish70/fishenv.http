@@ -9,7 +9,7 @@ import type {
   MiddlewareFn,
   RouteBuilder,
   RouteMeta,
-} from "../core/mod.ts";
+} from "../core/index.ts";
 import type { SseConnection } from "./connection.ts";
 import type { SseHub } from "./hub.ts";
 import { createSseResponse } from "./response.ts";

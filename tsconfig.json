@@ -14,9 +14,9 @@
     "skipLibCheck": true,
     "types": ["bun"],
     "paths": {
-      "@fishenv/http": ["./core/mod.ts"],
-      "@fishenv/http/sse": ["./sse/mod.ts"],
-      "@fishenv/http/contract": ["./contract/mod.ts"]
+      "@fishenv/http": ["./core/index.ts"],
+      "@fishenv/http/sse": ["./sse/index.ts"],
+      "@fishenv/http/contract": ["./contract/index.ts"]
     }
   },
   "include": ["core", "sse", "contract", "examples"]

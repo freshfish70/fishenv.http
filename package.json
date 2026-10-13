@@ -10,16 +10,16 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/core/mod.d.ts",
-      "default": "./dist/core/mod.js"
+      "types": "./dist/core/index.d.ts",
+      "default": "./dist/core/index.js"
     },
     "./sse": {
-      "types": "./dist/sse/mod.d.ts",
-      "default": "./dist/sse/mod.js"
+      "types": "./dist/sse/index.d.ts",
+      "default": "./dist/sse/index.js"
     },
     "./contract": {
-      "types": "./dist/contract/mod.d.ts",
-      "default": "./dist/contract/mod.js"
+      "types": "./dist/contract/index.d.ts",
+      "default": "./dist/contract/index.js"
     }
   },
   "publishConfig": {

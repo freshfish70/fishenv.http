@@ -20,7 +20,7 @@ export type {
   MergeParam,
   RouteMeta,
   ValibotSchema,
-} from "../contract/mod.ts";
+} from "../contract/index.ts";
 
 import type {
   AnySchema,
@@ -32,7 +32,7 @@ import type {
   InputKind,
   InputOptions,
   RouteMeta,
-} from "../contract/mod.ts";
+} from "../contract/index.ts";
 
 export interface ResolvedInput<K extends InputKind, O extends InputOptions<K>> {
   kind: K;

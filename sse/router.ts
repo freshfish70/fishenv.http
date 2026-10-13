@@ -1,7 +1,7 @@
 /** The `withSse()` mixin that adds `.sse()` to a core `Router`. */
 
-import type { BasePathParams, Router, RouterRef } from "../core/mod.ts";
-import { createRouteBuilder } from "../core/mod.ts";
+import type { BasePathParams, Router, RouterRef } from "../core/index.ts";
+import { createRouteBuilder } from "../core/index.ts";
 import { SseRouteBuilder } from "./route-builder.ts";
 
 export interface SseRouter<Ctx extends Record<string, unknown>> {
