@@ -20,6 +20,10 @@
     "./contract": {
       "types": "./dist/contract/index.d.ts",
       "default": "./dist/contract/index.js"
+    },
+    "./static": {
+      "types": "./dist/static/index.d.ts",
+      "default": "./dist/static/index.js"
     }
   },
   "publishConfig": {
