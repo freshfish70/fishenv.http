@@ -527,6 +527,13 @@ export function serve(
     development: options?.development ?? false,
     idleTimeout: options?.idleTimeout ?? 0,
     fetch: (req) => app.fetch(req),
+    // Errors outside the router's error chain (e.g. a `Bun.file` body that
+    // fails to open while the response is sent) would otherwise reach Bun's
+    // default error page, which exposes messages and paths in development.
+    error: (err) => {
+      options?.logger?.error("Unhandled error while serving request", err);
+      return new Response(null, { status: 500 });
+    },
   });
   const handle: HttpServer = {
     hostname: server.hostname ?? options?.hostname ?? "0.0.0.0",

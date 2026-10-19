@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { type CtxOf, Router, r, type serve } from "./router.ts";
+import { type CtxOf, Router, r, serve } from "./router.ts";
 import type { MiddlewareFn } from "./types.ts";
 
 const BASE = "http://localhost";
@@ -550,5 +550,34 @@ describe("Router add()", () => {
     const _ok: Parameters<typeof serve>[0] = withAuth;
     // @ts-expect-error — users requires AuthCtx
     const _bad: Parameters<typeof serve>[0] = users;
+  });
+});
+
+describe("serve() error hook", () => {
+  it("returns a bare 500 and logs when the response body fails to open", async () => {
+    const missing = `${import.meta.dir}/__does-not-exist__.txt`;
+    const app = r();
+    app.get("/file").handle(() => new Response(Bun.file(missing)));
+
+    const logged: unknown[][] = [];
+    const server = serve(app, {
+      port: 0,
+      hostname: "127.0.0.1",
+      development: true,
+      logger: {
+        error: (...args) => void logged.push(args),
+        warn: () => {},
+        info: () => {},
+      },
+    });
+    try {
+      const res = await fetch(`http://127.0.0.1:${server.port}/file`);
+      const body = await res.text();
+      expect(res.status).toBe(500);
+      expect(body).toBe("");
+      expect(logged).toHaveLength(1);
+    } finally {
+      await server.stop(true);
+    }
   });
 });
