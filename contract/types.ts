@@ -92,15 +92,17 @@ export type InferCookies<O extends InputOptions<InputKind>> =
 // Path Param Extraction
 // ---------------------------------------------------------------------------
 
+type ParamName<Param extends string> = Param extends `${infer Name}?`
+  ? Name
+  : Param extends `${infer Name}*`
+    ? Name
+    : Param;
+
 export type ExtractParams<P extends string> =
   P extends `${string}:${infer Param}/${infer Rest}`
-    ?
-        | (Param extends `${infer Name}?` ? Name : Param)
-        | ExtractParams<`/${Rest}`>
+    ? ParamName<Param> | ExtractParams<`/${Rest}`>
     : P extends `${string}:${infer Param}`
-      ? Param extends `${infer Name}?`
-        ? Name
-        : Param
+      ? ParamName<Param>
       : never;
 
 export type BasePathParams<P extends string> = {

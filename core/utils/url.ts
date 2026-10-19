@@ -11,13 +11,13 @@ export function mergePaths(base: string, sub: string): string {
 
 /**
  * Extract all named param names from a pattern (runtime, not type-level).
- * E.g. "/users/:id/posts/:pid?" → ["id", "pid"]
+ * E.g. "/users/:id/posts/:pid?/:rest*" → ["id", "pid", "rest"]
  */
 export function extractParamNames(pattern: string): string[] {
   const names: string[] = [];
   for (const segment of pattern.split("/")) {
     if (segment.startsWith(":")) {
-      names.push(segment.slice(1).replace(/\?$/, ""));
+      names.push(segment.slice(1).replace(/[?*]$/, ""));
     }
   }
   return names;
@@ -29,6 +29,9 @@ export function extractParamNames(pattern: string): string[] {
  * Rules:
  * - `:name`  → named capture `([^/]+)`
  * - `:name?` → optional named capture `(?:/([^/]+))?`
+ * - `:name*` → rest capture `(?:/(.*))?`, last segment only. The captured
+ *              remainder is raw (percent-encoded) and keeps a trailing slash;
+ *              the param is absent when nothing follows the prefix.
  * - `*`      → glob within a segment (`[^/]*`)
  * - `**`     → glob across path segments
  * - `{a,b}`  → alternation `(?:a|b)`
@@ -42,7 +45,18 @@ export function buildRouteRegex(pattern: string): {
 
   let regexStr = "";
 
-  for (const seg of segments) {
+  for (const [i, seg] of segments.entries()) {
+    if (seg.startsWith(":") && seg.endsWith("*")) {
+      if (i !== segments.length - 1) {
+        throw new Error(
+          `Rest param "${seg}" must be the last segment of "${pattern}"`,
+        );
+      }
+      paramNames.push(seg.slice(1, -1));
+      regexStr += `(?:/(.*))?`;
+      continue;
+    }
+
     if (seg.startsWith(":")) {
       const isOptional = seg.endsWith("?");
       const name = seg.slice(1).replace(/\?$/, "");

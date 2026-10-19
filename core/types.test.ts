@@ -29,6 +29,11 @@ test("ExtractParams — optional param", () => {
   expectTypeOf<R>().toEqualTypeOf<"id">();
 });
 
+test("ExtractParams — rest param", () => {
+  type R = ExtractParams<"/u/:id/:path*">;
+  expectTypeOf<R>().toEqualTypeOf<"id" | "path">();
+});
+
 test("ExtractParams — no params", () => {
   type R = ExtractParams<"/users">;
   expectTypeOf<R>().toEqualTypeOf<never>();

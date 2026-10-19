@@ -96,6 +96,22 @@ describe("Router routing", () => {
 
 // ── 404 / 405 ──────────────────────────────────────────────────────────
 
+describe("Router rest params", () => {
+  it("passes the raw remainder of a mounted router to the handler", async () => {
+    const files = r();
+    files.get("/:path*").handle(({ path }) => Response.json(path));
+    const app = r().add("/static", files);
+    app.get("/static/health").handle(() => new Response("ok"));
+    app.build();
+
+    expect(await (await app.fetch(req("/static/a/b%20c.txt"))).json()).toEqual({
+      path: "a/b%20c.txt",
+    });
+    expect(await (await app.fetch(req("/static"))).json()).toEqual({});
+    expect(await (await app.fetch(req("/static/health"))).text()).toEqual("ok");
+  });
+});
+
 describe("Router 404 / 405", () => {
   it("returns 404 for unknown path", async () => {
     const app = r();

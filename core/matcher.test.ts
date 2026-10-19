@@ -186,6 +186,33 @@ test("Matcher — segment glob beats deep wildcard", () => {
   expect(m.match("GET", "/assets/nested/app.css")?.definition).toEqual(deep);
 });
 
+test("Matcher — rest param captures the remainder", () => {
+  const m = new Matcher();
+  const def = stubRoute({ path: "/static/:path*" });
+  m.add("GET", "/static/:path*", def);
+  m.compile();
+
+  expect(m.match("GET", "/static/a/b.css")?.params).toEqual({
+    path: "a/b.css",
+  });
+  expect(m.match("GET", "/static")?.params).toEqual({});
+});
+
+test("Matcher — every other route beats a rest param", () => {
+  const m = new Matcher();
+  const rest = stubRoute({ path: "/:path*" });
+  const param = stubRoute({ path: "/users/:id" });
+  const glob = stubRoute({ path: "/api/**" });
+  m.add("GET", "/:path*", rest);
+  m.add("GET", "/users/:id", param);
+  m.add("GET", "/api/**", glob);
+  m.compile();
+
+  expect(m.match("GET", "/users/1")?.definition).toEqual(param);
+  expect(m.match("GET", "/api/x/y")?.definition).toEqual(glob);
+  expect(m.match("GET", "/dashboard/settings")?.definition).toEqual(rest);
+});
+
 // ---------------------------------------------------------------------------
 // 405 Method Not Allowed
 // ---------------------------------------------------------------------------
