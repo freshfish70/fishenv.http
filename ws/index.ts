@@ -26,6 +26,7 @@
  * - `helpers.ts`       — handshake helpers
  * - `hub.ts`           — `WsHub`, keyed registry + server-side rooms
  * - `tickets.ts`       — `WsTickets`, single-use handshake tickets
+ * - `typed.ts`         — `TypedWsConnection` for `c.ws().messages()` contracts
  * - `route-builder.ts` — `WsRouteBuilder`
  * - `router.ts`        — `withWs()` mixin
  */
@@ -63,17 +64,25 @@ export type {
   WsHandlerArgs,
   WsHandlerFn,
   WsProtocolHandler,
+  WsRouteInfo,
   WsRouteOptions,
   WsRouterOptions,
 } from "./route-builder.ts";
 // Route builder
 export { WsRouteBuilder } from "./route-builder.ts";
-export type { WsRouter } from "./router.ts";
+export type { SocketOf, WsRouter } from "./router.ts";
 // Router mixin
 export { withWs } from "./router.ts";
 export type { TicketStore, WsTicketsOptions } from "./tickets.ts";
 // Tickets
 export { bearerFromProtocol, MemoryTicketStore, WsTickets } from "./tickets.ts";
+// Contract-typed sockets
+export {
+  ContractViolationError,
+  checkOutbound,
+  parseInbound,
+  TypedWsConnection,
+} from "./typed.ts";
 export type {
   WsCleanupFn,
   WsConnectionOptions,

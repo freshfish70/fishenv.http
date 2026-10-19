@@ -1,5 +1,6 @@
 /** Fluent builder for WebSocket routes, layered on the core `RouteBuilder`. */
 
+import type { WsContractDefinition } from "../contract/index.ts";
 import {
   type AnySchema,
   BadRequestError,
@@ -32,6 +33,7 @@ import {
   type OriginSource,
   originSourcesFromCors,
 } from "./origin.ts";
+import { TypedWsConnection } from "./typed.ts";
 import {
   type WsCleanupFn,
   WsCloseCode,
@@ -42,8 +44,10 @@ import {
 export interface WsHandlerArgs<
   Ctx extends Record<string, unknown>,
   Params extends Record<string, unknown>,
+  Socket = WsConnection,
 > {
-  socket: WsConnection;
+  /** `TypedWsConnection` on `c.ws().messages()` contract routes. */
+  socket: Socket;
   path: Params;
   ctx: Ctx;
   /** The upgrade request. */
@@ -54,9 +58,17 @@ export interface WsHandlerArgs<
 export type WsHandlerFn<
   Ctx extends Record<string, unknown>,
   Params extends Record<string, unknown>,
+  Socket = WsConnection,
 > = (
-  args: WsHandlerArgs<Ctx, Params>,
+  args: WsHandlerArgs<Ctx, Params, Socket>,
 ) => void | WsCleanupFn | Promise<void | WsCleanupFn>;
+
+/** What a protocol handler learns about the route it is mounted on. */
+export interface WsRouteInfo {
+  /** Full path including router prefixes. */
+  path: string;
+  contract?: WsContractDefinition;
+}
 
 /**
  * A reusable protocol implementation (channels, JSON-RPC, …) that plugs into
@@ -70,7 +82,7 @@ export interface WsProtocolHandler<
   readonly protocols?: readonly string[];
   readonly setup: WsHandlerFn<Ctx, Params>;
   /** Startup validation hook (e.g. completeness checks). */
-  onBuild?(env: BuildEnv): void;
+  onBuild?(env: BuildEnv, route: WsRouteInfo): void;
 }
 
 /** Router-level defaults set via `withWs(router, options)`. */
@@ -90,6 +102,8 @@ export interface WsRouteOptions {
   maxQueuedMessages?: number;
   // biome-ignore lint/suspicious/noExplicitAny: args type is erased at runtime
   maxConnections?: WsConnectionLimit<any>;
+  /** Set for routes created from a `c.ws()` contract. */
+  contract?: WsContractDefinition;
 }
 
 type Inner<
@@ -119,6 +133,7 @@ export class WsRouteBuilder<
   RouterCtx extends Record<string, unknown>,
   RouteCtx extends Record<string, unknown>,
   Params extends Record<string, unknown>,
+  Socket = WsConnection,
 > {
   readonly #inner: Inner<RouterCtx, RouteCtx, Params>;
   readonly #options: WsRouteOptions;
@@ -187,17 +202,23 @@ export class WsRouteBuilder<
   /** Cap open sockets on this route (`503`) and/or per key (`429`). */
   maxConnections(
     limit: WsConnectionLimit<
-      Omit<WsHandlerArgs<RouterCtx & RouteCtx, Params>, "socket">
+      Omit<WsHandlerArgs<RouterCtx & RouteCtx, Params, Socket>, "socket">
     >,
   ): this {
     this.#options.maxConnections = limit;
     return this;
   }
 
+  /** Not available on contract routes — the contract owns the params. */
   param<Name extends string & keyof Params, S extends AnySchema>(
     name: Name,
     schema: S,
-  ): WsRouteBuilder<RouterCtx, RouteCtx, MergeParam<Params, Name, S>> {
+  ): WsRouteBuilder<RouterCtx, RouteCtx, MergeParam<Params, Name, S>, Socket> {
+    if (this.#options.contract != null) {
+      throw new Error(
+        `param("${name}"): params of contract routes come from the contract`,
+      );
+    }
     return new WsRouteBuilder(
       this.#inner.param(name, schema),
       cloneOptions(this.#options),
@@ -206,7 +227,7 @@ export class WsRouteBuilder<
 
   with<NewCtx extends Record<string, unknown>>(
     mw: MiddlewareFn<RouterCtx & RouteCtx, NewCtx>,
-  ): WsRouteBuilder<RouterCtx, RouteCtx & NewCtx, Params> {
+  ): WsRouteBuilder<RouterCtx, RouteCtx & NewCtx, Params, Socket> {
     return new WsRouteBuilder(
       this.#inner.with(mw),
       cloneOptions(this.#options),
@@ -220,7 +241,11 @@ export class WsRouteBuilder<
     if (handler.protocols != null && this.#options.protocols == null) {
       this.#options.protocols = [...handler.protocols];
     }
-    return this.#finish(handler.setup, handler.onBuild?.bind(handler));
+    return this.#finish(
+      handler.setup as WsHandlerFn<RouterCtx & RouteCtx, Params, unknown>,
+      false,
+      handler.onBuild?.bind(handler),
+    );
   }
 
   /**
@@ -230,10 +255,18 @@ export class WsRouteBuilder<
   subscribe<H extends WsHub>(
     // biome-ignore lint/suspicious/noExplicitAny: intentional any
     token: abstract new (...args: any[]) => H,
-    key: (args: WsHandlerArgs<RouterCtx & RouteCtx, Params>) => string,
+    key: (args: WsHandlerArgs<RouterCtx & RouteCtx, Params, Socket>) => string,
   ): FinishedRoute {
     return this.handle((args) => {
-      args.container.get(token).add(key(args), args.socket);
+      const socket = args.socket as
+        | WsConnection
+        | TypedWsConnection<unknown, unknown>;
+      args.container
+        .get(token)
+        .add(
+          key(args),
+          socket instanceof TypedWsConnection ? socket.connection : socket,
+        );
     });
   }
 
@@ -244,15 +277,25 @@ export class WsRouteBuilder<
    * `.catch()` on the result only covers failures *before* the upgrade
    * (origin, middleware, params) — after that, errors close the socket.
    */
-  handle(fn: WsHandlerFn<RouterCtx & RouteCtx, Params>): FinishedRoute {
-    return this.#finish(fn);
+  handle(fn: WsHandlerFn<RouterCtx & RouteCtx, Params, Socket>): FinishedRoute {
+    if (this.#options.contract?.kind === "channels") {
+      throw new Error(
+        `${this.#options.contract.path}: channel contracts are implemented with .channels([...])`,
+      );
+    }
+    return this.#finish(
+      fn as WsHandlerFn<RouterCtx & RouteCtx, Params, unknown>,
+      true,
+    );
   }
 
   #finish(
-    fn: WsHandlerFn<RouterCtx & RouteCtx, Params>,
-    onBuild?: (env: BuildEnv) => void,
+    fn: WsHandlerFn<RouterCtx & RouteCtx, Params, unknown>,
+    typed: boolean,
+    onBuild?: (env: BuildEnv, route: WsRouteInfo) => void,
   ): FinishedRoute {
     const options = cloneOptions(this.#options);
+    const messages = typed ? options.contract?.messages : undefined;
     const counter = options.maxConnections ? new ConnectionCounter() : null;
 
     let policy: OriginPolicy | undefined;
@@ -290,7 +333,14 @@ export class WsRouteBuilder<
       const handlers = createLifecycle(
         req,
         protocol,
-        (socket) => fn({ socket, ...baseArgs }),
+        (socket) =>
+          fn({
+            socket:
+              messages == null
+                ? socket
+                : new TypedWsConnection(socket, messages, () => development),
+            ...baseArgs,
+          }),
         {
           maxMessageSize: options.maxMessageSize,
           rateLimit: options.rateLimit,
@@ -365,7 +415,7 @@ export class WsRouteBuilder<
           `[fishenv.ws] ${definition.path}: maxMessageSize ${options.maxMessageSize} exceeds the server-wide maxPayloadLength ${globalMax}; the server limit wins`,
         );
       }
-      onBuild?.(env);
+      onBuild?.(env, { path: definition.path, contract: options.contract });
     };
 
     return route;

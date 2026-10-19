@@ -8,6 +8,7 @@ import type {
   MergeParam,
   RouteMeta,
 } from "./types.ts";
+import { wsContractFactories } from "./ws.ts";
 
 /**
  * Plain-data snapshot of a contract endpoint.
@@ -229,6 +230,7 @@ function endpoint<M extends HttpMethod>(method: M) {
  * ```
  */
 export const c = {
+  ...wsContractFactories,
   get: endpoint("GET"),
   post: endpoint("POST"),
   put: endpoint("PUT"),
