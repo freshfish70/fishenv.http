@@ -1,6 +1,35 @@
 import type * as v from "valibot";
 import type { HttpMethod } from "./types.ts";
 
+const CODES: Record<number, string> = {
+  400: "bad_request",
+  401: "unauthorized",
+  403: "forbidden",
+  404: "not_found",
+  405: "method_not_allowed",
+  409: "conflict",
+  422: "unprocessable_entity",
+  429: "too_many_requests",
+  500: "internal",
+};
+
+/** Stable machine-readable code for a status, e.g. `403` → `"forbidden"`. */
+export function errorCodeForStatus(status: number): string {
+  return CODES[status] ?? `http_${status}`;
+}
+
+/**
+ * Transport-neutral error payload. HTTP responses and WebSocket replies are
+ * both rendered from this, so they share one disclosure policy.
+ */
+export interface HttpErrorJSON {
+  status: number;
+  code: string;
+  message: string;
+  details?: Record<string, unknown>;
+  stack?: string;
+}
+
 export class HttpError extends Error {
   readonly status: number;
 
@@ -10,9 +39,33 @@ export class HttpError extends Error {
     this.name = "HttpError";
   }
 
+  /** Machine-readable code. Override in subclasses for custom errors. */
+  get code(): string {
+    return errorCodeForStatus(this.status);
+  }
+
+  /** Extra public fields (e.g. validation issues). Never include secrets. */
+  protected details(): Record<string, unknown> | undefined {
+    return undefined;
+  }
+
+  /** The public payload; the stack is only included in development. */
+  toJSON(development = false): HttpErrorJSON {
+    const json: HttpErrorJSON = {
+      status: this.status,
+      code: this.code,
+      message: this.message,
+    };
+    const details = this.details();
+    if (details != null) json.details = details;
+    if (development && this.stack) json.stack = this.stack;
+    return json;
+  }
+
   toResponse(development = false): Response {
-    const body: Record<string, unknown> = { error: this.message };
-    if (development && this.stack) body.stack = this.stack;
+    const json = this.toJSON(development);
+    const body: Record<string, unknown> = { error: json.message };
+    if (json.stack) body.stack = json.stack;
     return Response.json(body, { status: this.status });
   }
 }
@@ -84,16 +137,23 @@ export class ValidationError extends HttpError {
     this.issues = issues;
   }
 
+  override get code(): string {
+    return "validation_error";
+  }
+
+  protected override details(): Record<string, unknown> {
+    return {
+      field: this.field,
+      issues: this.issues.map((i) => ({
+        message: i.message,
+        path: i.path?.map((p) => p.key) ?? [],
+      })),
+    };
+  }
+
   override toResponse(): Response {
     return Response.json(
-      {
-        error: "ValidationError",
-        field: this.field,
-        issues: this.issues.map((i) => ({
-          message: i.message,
-          path: i.path?.map((p) => p.key) ?? [],
-        })),
-      },
+      { error: "ValidationError", ...this.details() },
       { status: 400 },
     );
   }

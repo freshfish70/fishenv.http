@@ -22,6 +22,11 @@ import type {
   NotFoundHandler,
   RouteDefinition,
 } from "./types.ts";
+import {
+  completeUpgrade,
+  createWebSocketRuntime,
+  type WsServerOptions,
+} from "./upgrade.ts";
 
 const stubContainer: DIContainer = {
   get() {
@@ -495,6 +500,8 @@ export interface ServeOptions {
    * (disabled) so long-lived SSE streams are not cut between keepalives.
    */
   idleTimeout?: number;
+  /** Server-wide WebSocket settings (secure defaults; see {@link WsServerOptions}). */
+  websocket?: WsServerOptions;
   onListen?: (addr: { hostname: string; port: number }) => void;
 }
 
@@ -502,7 +509,10 @@ export interface ServeOptions {
 export interface HttpServer {
   readonly hostname: string;
   readonly port: number;
-  /** Stop accepting connections; `force` also closes in-flight ones. */
+  /**
+   * Stop accepting connections; `force` also closes in-flight ones. Open
+   * WebSockets are always closed with `1001 Going Away` first.
+   */
   stop(force?: boolean): Promise<void>;
 }
 
@@ -521,12 +531,15 @@ export function serve(
     app._setContainer(options.container);
   }
   app.build(); // idempotent
+  const sockets = createWebSocketRuntime(options?.websocket, options?.logger);
   const server = Bun.serve({
     port: options?.port ?? 8000,
     hostname: options?.hostname ?? "0.0.0.0",
     development: options?.development ?? false,
     idleTimeout: options?.idleTimeout ?? 0,
-    fetch: (req) => app.fetch(req),
+    fetch: async (req, server) =>
+      completeUpgrade(req, await app.fetch(req), server),
+    websocket: sockets.websocket,
     // Errors outside the router's error chain (e.g. a `Bun.file` body that
     // fails to open while the response is sent) would otherwise reach Bun's
     // default error page, which exposes messages and paths in development.
@@ -538,7 +551,10 @@ export function serve(
   const handle: HttpServer = {
     hostname: server.hostname ?? options?.hostname ?? "0.0.0.0",
     port: server.port ?? options?.port ?? 8000,
-    stop: (force) => server.stop(force),
+    stop: (force) => {
+      sockets.closeAll();
+      return server.stop(force);
+    },
   };
   options?.signal?.addEventListener("abort", () => void handle.stop(), {
     once: true,
