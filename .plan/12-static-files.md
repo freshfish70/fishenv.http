@@ -361,3 +361,28 @@ through `router.fetch`:
 6. Lookup cache.
 7. TOCTOU and Windows spikes; fold results into the `untrusted` path.
 8. `package.json` export, README section, `examples/static/` (API + SPA at `/`).
+
+## Implementation status (2026-10-19, branch `feat/static`)
+
+Done: steps 1–6 and 8 (the core `serve()` error hook landed earlier, in
+`b10fa2a`). There are 194 tests in `static/`, all mutation-checked: removing
+any one security check (containment, realpath, FIFO, segment rules, dotfiles,
+case-insensitive rules, relative redirect, fallback guards, untrusted CSP,
+Vary) fails at least one test.
+
+Deviations and findings:
+
+- **Cache hit cost.** A hit stats the original file and, when a pre-compressed
+  variant is chosen, the variant too. That is up to two `stat`s, not one;
+  `realpath` is still skipped. ETag/Last-Modified come from the file actually
+  sent.
+- **If-Range.** Bun follows RFC 9110: our weak ETag never satisfies `If-Range`
+  (full 200), but `If-Range: <Last-Modified>` gives a 206. Resumable downloads
+  therefore work through the date. Covered in `serve.test.ts`.
+- **Errors.** Static 404/400 responses are thrown as `NotFoundError` /
+  `BadRequestError`, so they render through the app's `onError` chain.
+- **`:path*` mounted at a prefix.** It also matches the bare prefix (param
+  absent), so no separate `get("/")` route is needed.
+
+Open: step 7. The TOCTOU-safe `O_NOFOLLOW` + `Bun.file(fd)` path and the
+Windows verification (8.3 short names vs deny rules) are not done yet.

@@ -267,19 +267,44 @@ route.stream("/stream").handle(({ res, ctx }) => {
 
 # Static File Serving
 
-`fishenv.http` also includes support for serving static files, allowing you to
-easily serve HTML, CSS, JavaScript, images, and other static assets from your
-application. You can define a static file route that serves files from a
-specified directory, and configure options such as caching and directory
-listing.
+`@fishenv/http/static` serves a directory without you writing any path
+handling, traversal checks, MIME detection or caching code. `staticFiles()`
+returns an ordinary router, so it is mounted, prefixed and wrapped in
+middleware like any other:
 
 ```typescript
-route.static("/static", {
-  directory: "./public", // The directory from which to serve static files
-  cacheControl: "max-age=3600", // Cache control header for static files
-  directoryListing: false, // Whether to enable directory listing for the static file route
-});
+import { r, serve } from "@fishenv/http";
+import { serveFile, spa, staticFiles } from "@fishenv/http/static";
+
+const app = r()
+  .add("/assets", staticFiles({
+    root: "./public",
+    precompressed: ["br", "gzip"], // serve app.js.br / app.js.gz when accepted
+    rules: [
+      { match: "**/*.{js,css}", cacheControl: "public, max-age=31536000, immutable" },
+      { match: "**/*.map", deny: true },
+    ],
+  }));
+
+// Single-page app at the root: real files, else index.html for client routes.
+// `exclude` keeps unknown API paths on a real 404 instead of the HTML shell.
+app.add(spa({ root: "./dist", exclude: ["api/**"] }));
+
+// One known file from a handler
+app.get("/report").handle(({ req }) => serveFile(req, "/var/reports/latest.pdf"));
+
+serve(app);
 ```
+
+Safe by default: paths are decoded and validated per segment, confined to the
+real root (symlinks included), dotfiles are hidden, only regular files are
+served, and every rejection is a plain 404 through your `onError` chain.
+Responses get `X-Content-Type-Options: nosniff`, `Cache-Control: no-cache`
+(override per rule), weak ETags and `Last-Modified`; single-range requests
+are handled by Bun. For directories holding user uploads, set
+`untrusted: true` (CSP sandbox, downloads for active content, no symlinks).
+Unknown options throw at startup, so a typo never silently falls back to a
+default.
 
 # Async Local Storage
 
