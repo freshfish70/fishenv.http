@@ -1,4 +1,5 @@
 import { expect, expectTypeOf, test } from "bun:test";
+import * as v from "valibot";
 import {
   createRouteBuilder,
   FinishedRoute,
@@ -239,4 +240,43 @@ test("RouteBuilder type — chained .with() merges context", () => {
       expectTypeOf<typeof args.ctx.b>().toEqualTypeOf<2>();
       return new Response();
     });
+});
+
+test("RouteBuilder type — async handler may return a union output", () => {
+  const router = stubRouter();
+  const File = v.object({ kind: v.literal("file"), content: v.string() });
+  const Missing = v.object({ kind: v.literal("missing") });
+
+  createRouteBuilder(router, "GET", "/file")
+    .output(v.union([File, Missing]))
+    .handle(async () => {
+      if (Math.random() > 0.5) return { kind: "file" as const, content: "x" };
+      return { kind: "missing" as const };
+    });
+});
+
+test("RouteBuilder type — async handler may mix Response and a union output", () => {
+  const router = stubRouter();
+  const Union = v.union([
+    v.object({ kind: v.literal("a") }),
+    v.object({ kind: v.literal("b") }),
+  ]);
+  const value = { kind: "a" } as v.InferOutput<typeof Union>;
+
+  createRouteBuilder(router, "GET", "/file")
+    .output(Union)
+    .handle(async () => {
+      if (Math.random() > 0.5) return new Response(null, { status: 404 });
+      return value;
+    });
+});
+
+test("RouteBuilder type — async handler may return an optional output", () => {
+  const router = stubRouter();
+  const Item = v.object({ id: v.string() });
+  const value = undefined as v.InferOutput<typeof Item> | undefined;
+
+  createRouteBuilder(router, "GET", "/item")
+    .output(v.optional(Item))
+    .handle(async () => value);
 });

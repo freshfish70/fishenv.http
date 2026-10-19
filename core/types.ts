@@ -103,7 +103,7 @@ export type HandlerFn<
   Output,
 > = (
   args: HandlerArgs<Ctx, K, O, Params>,
-) => Output extends unknown
+) => [Output] extends [undefined]
   ? Response | Promise<Response>
   : Response | Output | Promise<Response | Output>;
 

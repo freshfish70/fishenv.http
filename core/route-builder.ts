@@ -236,7 +236,7 @@ export class RouteBuilder<
   handle(
     fn: (
       args: HandlerArgs<RouterCtx & RouteCtx, K, O, Params>,
-    ) => Output extends undefined
+    ) => [Output] extends [undefined]
       ? Response | Promise<Response>
       : Response | Output | Promise<Response | Output>,
   ): FinishedRoute {
