@@ -39,10 +39,10 @@
 | SSE multiline              | Auto-split `\n`                                                                           |
 | SSE Last-Event-ID          | Exposed as `sse.lastEventId`                                                              |
 | Typed SSE events           | v2                                                                                        |
-| Range requests             | Not in v1                                                                                 |
-| Pre-compressed static      | Serve `.gz`/`.br` automatically                                                           |
-| Extension pattern          | **Mixin functions**: `withWs()`, `withSse()`, `withStatic()`                              |
-| Directory listing          | `true \| "html" \| "json"` — default `false`                                              |
+| Range requests             | Single-range via Bun's native `Bun.file` handling (static only); no multi-range           |
+| Pre-compressed static      | Opt-in `.br`/`.gz` siblings, q-value negotiation, `Vary: Accept-Encoding`                 |
+| Extension pattern          | **Mixin functions**: `withWs()`, `withSse()`; static is a mountable `staticFiles()` router (+ `withStatic()` sugar) |
+| Directory listing          | Deferred to v1.1                                                                          |
 | Static security headers    | `X-Content-Type-Options: nosniff` + `Cache-Control: no-cache` by default                  |
 | Streaming                  | `ReadableStream` returned from regular `.handle()` — no dedicated builder                 |
 | DI                         | **Skipped for v1** — only `DIContainer` interface stub                                    |
@@ -70,7 +70,7 @@
 | 09   | `09-context-als.md`         | Async Local Storage                            | 04, 06     |
 | 10   | `10-websockets.md`          | WebSocket mixin (`withWs`)                     | 05, 06     |
 | 11   | `11-sse.md`                 | SSE mixin (`withSse`)                          | 05, 06     |
-| 12   | `12-static-files.md`        | Static file mixin (`withStatic`)               | 06         |
+| 12   | `12-static-files.md`        | Static files (`staticFiles`, `withStatic`, `serveFile`) + core `:name*` rest param | 06 |
 | 13   | `13-di-integration.md`      | DI stub + interface only                       | 02         |
 | 14   | `14-openapi.md`             | OpenAPI spec generation                        | 05, 06, 08 |
 | 15   | `15-client-gen.md`          | RPC client (uses fishenv.wrq)                  | 14         |
@@ -97,13 +97,13 @@ require a complete route registry.
 | DI                   | None                                   | `container.get(Service)` in every handler (v2)                                |
 | OpenAPI              | Third-party                            | Built-in from `.meta()` + `.input()` + `.output()`                            |
 | WS/SSE               | Via adapters                           | First-class sub-path modules                                                  |
-| Extensions           | N/A                                    | Mixin pattern: `withWs(router)`, `withSse(router)`, `withStatic(router, ...)` |
+| Extensions           | N/A                                    | Mixin pattern: `withWs(router)`, `withSse(router)`; `router.add(prefix, staticFiles(...))` |
 
 ## Non-Goals for v1
 
 - Decorator-based DI (`@Injectable`, `@Inject`)
 - DI implementation of any kind
-- HTTP Range requests
+- HTTP Range requests outside static files
 - Multi-range requests
 - Runtime compression of responses
 - Typed SSE events (`SseController<Events>`)
