@@ -23,17 +23,10 @@ import type * as v from "valibot";
 import type {
   AnySchema,
   BasePathParams,
+  ErrorTypes,
   MergeParam,
   RouteMeta,
 } from "./types.ts";
-
-/**
- * Error classes a handler may throw — documentation and client typing only,
- * like `.output(schema, errors)`. `any[]` so that HTTP error classes with
- * typed constructor params (`ForbiddenError(message?: string)`) fit.
- */
-// biome-ignore lint/suspicious/noExplicitAny: constructor params are contravariant
-export type ErrorTypes = (abstract new (...args: any[]) => Error)[];
 
 /** The channel protocol's subprotocol name. */
 export const CHANNELS_PROTOCOL = "fishenv.channels.v1";

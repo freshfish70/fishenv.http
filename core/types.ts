@@ -24,6 +24,7 @@ export type {
 
 import type {
   AnySchema,
+  ErrorTypes,
   HttpMethod,
   InferBody,
   InferCookies,
@@ -127,7 +128,7 @@ export interface RouteDefinition {
   inputKind: InputKind;
   inputOptions: InputOptions<InputKind>;
   outputSchema?: AnySchema;
-  errorTypes?: (new (...args: unknown[]) => Error)[];
+  errorTypes?: ErrorTypes;
   meta?: RouteMeta;
   interceptors: InterceptorPair<Record<string, unknown>>[];
   handler: HandlerFn<

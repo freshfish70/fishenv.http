@@ -126,3 +126,11 @@ export interface RouteMeta {
   deprecated?: boolean;
   operationId?: string;
 }
+
+/**
+ * Error classes a handler may throw — documentation and client typing only
+ * (`.output(schema, errors)`, WebSocket replies). `any[]` so that classes with
+ * typed constructor params (`ForbiddenError(message?: string)`) fit.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: constructor params are contravariant
+export type ErrorTypes = (abstract new (...args: any[]) => Error)[];

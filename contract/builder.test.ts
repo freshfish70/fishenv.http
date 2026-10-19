@@ -1,5 +1,6 @@
 import { expect, expectTypeOf, test } from "bun:test";
 import * as v from "valibot";
+import { ForbiddenError, NotFoundError } from "../core/error.ts";
 import { type ContractShape, c } from "./index.ts";
 
 test("c.post — builds a definition snapshot", () => {
@@ -38,4 +39,14 @@ test("builders are immutable — each call returns a distinct instance", () => {
 
   expect(base === (withOutput as unknown)).toEqual(false);
   expect(base._definition.outputSchema).toEqual(undefined);
+});
+
+test("c.get — output() accepts the built-in HTTP error classes", () => {
+  const endpoint = c
+    .get("/users/:id")
+    .output(v.object({ id: v.string() }), [ForbiddenError, NotFoundError]);
+  expect(endpoint._definition.errorTypes).toEqual([
+    ForbiddenError,
+    NotFoundError,
+  ]);
 });

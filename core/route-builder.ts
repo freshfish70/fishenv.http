@@ -1,4 +1,8 @@
-import type { AnyContractBuilder, ContractShape } from "../contract/index.ts";
+import type {
+  AnyContractBuilder,
+  ContractShape,
+  ErrorTypes,
+} from "../contract/index.ts";
 import type {
   AfterInterceptorFn,
   AnySchema,
@@ -72,9 +76,7 @@ export class RouteBuilder<
   #inputKind: InputKind;
   #inputOptions: InputOptions<InputKind>;
   #outputSchema?: AnySchema;
-  #errorTypes?: (new (
-    ...args: unknown[]
-  ) => Error)[];
+  #errorTypes?: ErrorTypes;
   #meta?: RouteMeta;
   #interceptors: InterceptorPair<Record<string, unknown>>[];
 
@@ -90,7 +92,7 @@ export class RouteBuilder<
     inputKind: InputKind = "none",
     inputOptions: InputOptions<InputKind> = {},
     outputSchema?: AnySchema,
-    errorTypes?: (new (...args: unknown[]) => Error)[],
+    errorTypes?: ErrorTypes,
     meta?: RouteMeta,
     interceptors: InterceptorPair<Record<string, unknown>>[] = [],
   ) {
@@ -201,7 +203,7 @@ export class RouteBuilder<
   /** Set output schema + optional error types — returns new builder */
   output<S extends AnySchema>(
     schema: S,
-    errors?: (new (...args: unknown[]) => Error)[],
+    errors?: ErrorTypes,
   ): RouteBuilder<RouterCtx, RouteCtx, K, O, Params, InferOutput<S>> {
     return new RouteBuilder(
       this.#router,

@@ -9,6 +9,7 @@ export {
 export type {
   AnySchema,
   BasePathParams,
+  ErrorTypes,
   ExtractParams,
   HttpMethod,
   InferBody,
@@ -28,7 +29,6 @@ export type {
   AnyWsContract,
   ChannelContractDefinition,
   ChannelEventDefinition,
-  ErrorTypes,
   EventSchemas,
   InferChannel,
   InferSocket,
