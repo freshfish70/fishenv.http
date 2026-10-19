@@ -870,3 +870,55 @@ sse/
 ## 13. Open questions
 
 None outstanding. Resolved answers are recorded in §0.
+
+---
+
+## Implementation status (2026-10-19, branch `feat/ws`)
+
+Done: steps 1–8. Step 9 (`ws-client`) has not been started. There are 349
+WS-related tests across `core/` (upgrade, transport, errors, guards),
+`contract/` and `ws/`. Most run against a real `serve()` with the WHATWG `WebSocket`
+client. Presence replication is tested deterministically, with injected
+timers and a lossy/duplicating transport. A spot mutation check (disabling
+the origin check, open-buffering, the channel membership check and join
+authorization) fails the expected tests each time.
+
+Deviations and findings:
+
+- **Core hooks.** Two generic additions instead of ws-specific branching:
+  `RouteDefinition.guards` (run before *router-level* middleware, which the
+  origin check needs) and `onBuild(env)` (root `cors()` options, `development`,
+  logger and websocket settings, for routes on mounted children). `serve()`
+  calls `app._setEnv()` before `build()`.
+- **Bun drops oversized frames silently.** Above the server-wide
+  `maxPayloadLength`, clients see `1006`, not `1009`. The per-route
+  `maxMessageSize` sends a real `1009`.
+- **Bun echoes the first offered subprotocol** when the route doesn't
+  negotiate. `bearerFromProtocol()` therefore requires the scheme to be
+  offered first, and routes that care must use `.protocols()`.
+- **Error lists.** `ErrorTypes` uses `abstract new (...args: any[]) => Error`.
+  The HTTP contract's `(new (...args: unknown[]) => Error)[]` rejects the
+  built-in HTTP error classes (their constructor parameters are typed), so
+  `.output(schema, [ForbiddenError])` doesn't type-check today. It should be
+  aligned separately.
+- **HTTP error bodies are unchanged** (`{ error }`). `HttpError` gained `code`
+  and `toJSON(development)`. WS replies use the full payload; HTTP bodies
+  are rendered from the same disclosure policy.
+- **Connection limits** are checked before the upgrade and re-checked on
+  open. Only real opens are counted, so an aborted handshake can't leak a slot.
+- **Channel replies for fire-and-forget events.** If the client sends a
+  `ref`, it still gets `{ ok: true }` as an acknowledgement. A failure
+  without a `ref` is reported as `{ t: "error" }`.
+- **Channel ctx typing.** Use `channel.withContext<Ctx>()` or the
+  `.channels((channel) => [...])` callback. Since TS can't partially infer
+  generics, `channel<Ctx>(contract)` isn't possible.
+- **Presence diffs** are derived on every node from replicated state and fanned
+  out to *local* channel members only. Nothing is re-published per diff.
+  Clients merge by `ref`, idempotently (a joiner also sees its own join in the
+  first diff after `presence_state`).
+
+Open:
+
+- step 9 (`ws-client`)
+- an AsyncAPI generator (route `meta` is recorded)
+- message replay (the `seq` field is reserved)
