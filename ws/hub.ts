@@ -14,6 +14,11 @@ import {
 } from "../core/index.ts";
 import { WsChannelTarget } from "./channels/target.ts";
 import type { WsConnection } from "./connection.ts";
+import {
+  type PresenceOptions,
+  PresenceRegistry,
+  PresenceTopic,
+} from "./presence.ts";
 import { WsCloseCode } from "./types.ts";
 
 /** Anything a hub can deliver: text and binary go out as-is, the rest as JSON. */
@@ -51,6 +56,8 @@ export interface WsHubOptions {
    */
   name?: string;
   transport?: Transport<WsTransportMessage>;
+  /** Presence tuning (batching, heartbeats, limits). */
+  presence?: PresenceOptions;
 }
 
 type Frame = string | Uint8Array;
@@ -190,9 +197,14 @@ export class WsHub {
   >();
   readonly #extensions = new Map<string, (body: unknown) => void>();
   readonly #bridge: TransportBridge<WsTransportMessage>;
+  readonly #replicated: boolean;
+  readonly #presenceOptions?: PresenceOptions;
+  #presence?: PresenceRegistry;
 
   constructor(options: WsHubOptions = {}) {
     this.name = options.name ?? this.constructor.name;
+    this.#replicated = options.transport != null;
+    this.#presenceOptions = options.presence;
     this.#bridge = createTransportBridge(
       options.transport,
       (message) => {
@@ -341,7 +353,28 @@ export class WsHub {
   /** Close every local socket and detach from the transport. */
   closeAll(code: number = WsCloseCode.GoingAway, reason = ""): void {
     for (const socket of [...this.#tracked]) socket.close(code, reason);
+    this.#presence?.close();
     this.#bridge.close();
+  }
+
+  // ── Presence ────────────────────────────────────────────────────────
+
+  /**
+   * Presence for a topic — who is "in" it, by key, across every node.
+   * Channels with contract presence use `hub.channel(name).presence`.
+   */
+  presence<M = unknown>(topic: string): PresenceTopic<M> {
+    return new PresenceTopic<M>(this._presenceRegistry(), topic);
+  }
+
+  /** @internal The hub's presence registry (created on first use). */
+  _presenceRegistry(): PresenceRegistry {
+    this.#presence ??= new PresenceRegistry(
+      this,
+      this.#replicated,
+      this.#presenceOptions,
+    );
+    return this.#presence;
   }
 
   // ── Introspection ───────────────────────────────────────────────────

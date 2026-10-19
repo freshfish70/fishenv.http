@@ -21,7 +21,9 @@ import {
   validatePathParams,
 } from "../../core/index.ts";
 import type { WsConnection } from "../connection.ts";
-import { WsHub } from "../hub.ts";
+import { type RoomFilter, WsHub } from "../hub.ts";
+import { TokenBucket } from "../limits.ts";
+import type { PresenceRegistry } from "../presence.ts";
 import type {
   WsHandlerArgs,
   WsProtocolHandler,
@@ -207,6 +209,7 @@ class ChannelSession {
   readonly #opts: typeof DEFAULTS;
   readonly #env: RuntimeEnv;
   readonly #joined = new Map<string, Joined>();
+  readonly #presenceBuckets = new Map<string, TokenBucket>();
   #chain: Promise<void> = Promise.resolve();
   #pending = 0;
   #violations = 0;
@@ -284,11 +287,7 @@ class ChannelSession {
         case "leave":
           return await this.#leave(frame);
         case "presence_update":
-          throw new ChannelError(
-            400,
-            "presence_disabled",
-            "Presence is not enabled on this channel",
-          );
+          return await this.#presenceUpdate(frame);
       }
     } catch (err) {
       this.#fail(frame.ref, frame.ch, err);
@@ -316,15 +315,32 @@ class ChannelSession {
     const data = parsePayload(contract.join.payload, frame.d);
 
     const context = this.#context(def, frame.ch);
-    const reply = def.join
-      ? await def.join({ ...this.#base(path), data, channel: context })
-      : undefined;
+    const args = { ...this.#base(path), data, channel: context };
+    const reply = def.join ? await def.join(args) : undefined;
     checkOutbound(
       contract.join.reply,
       reply,
       this.#env.development,
       `join reply of "${frame.ch}"`,
     );
+
+    // Resolve presence before committing, so a failing tracker aborts the join.
+    const presence = contract.presence;
+    const tracked =
+      presence != null && def.presence != null
+        ? ((await def.presence(args)) as
+            | { key: string; meta: unknown }
+            | null
+            | undefined)
+        : null;
+    if (tracked != null) {
+      checkOutbound(
+        presence?.meta,
+        tracked.meta,
+        this.#env.development,
+        `presence meta of "${frame.ch}"`,
+      );
+    }
 
     if (this.#socket.closed) return;
     const room = channelRoom(frame.ch);
@@ -334,6 +350,62 @@ class ChannelSession {
     );
     this.#joined.set(frame.ch, { impl: def, name: frame.ch, path, context });
     this.#reply(frame.ref, reply);
+
+    if (presence != null) {
+      const registry = presenceFor(this.#hub);
+      if (tracked != null) {
+        registry.track(room, this.#socket, tracked.key, tracked.meta);
+      }
+      this.#send(
+        encodeFrame({
+          t: "presence_state",
+          ch: frame.ch,
+          d: registry.list(room),
+        }),
+      );
+    }
+  }
+
+  async #presenceUpdate(
+    frame: Extract<ClientFrame, { t: "presence_update" }>,
+  ): Promise<void> {
+    const joined = this.#joined.get(frame.ch);
+    if (joined == null)
+      throw new ChannelError(403, "not_joined", "Channel not joined");
+    const presence = joined.impl.contract._definition.presence;
+    if (presence == null || !presence.clientUpdates) {
+      throw new ChannelError(
+        403,
+        "forbidden",
+        "Presence updates are not allowed on this channel",
+      );
+    }
+    const room = channelRoom(frame.ch);
+    const registry = presenceFor(this.#hub);
+    if (registry.metaOf(room, this.#socket) === undefined) {
+      throw new ChannelError(
+        409,
+        "not_tracked",
+        "This socket is not tracked in presence",
+        false,
+      );
+    }
+    const meta = parsePayload(presence.meta, frame.d);
+    let bucket = this.#presenceBuckets.get(frame.ch);
+    if (bucket == null) {
+      bucket = new TokenBucket(1, PRESENCE_UPDATE_INTERVAL_MS);
+      this.#presenceBuckets.set(frame.ch, bucket);
+    }
+    if (!bucket.take()) {
+      throw new ChannelError(
+        429,
+        "rate_limited",
+        "Presence updates are rate limited",
+        false,
+      );
+    }
+    registry.update(room, this.#socket, meta);
+    this.#reply(frame.ref, undefined);
   }
 
   async #event(frame: Extract<ClientFrame, { t: "event" }>): Promise<void> {
@@ -410,7 +482,12 @@ class ChannelSession {
 
   #forget(joined: Joined): void {
     this.#joined.delete(joined.name);
-    this.#hub.leave(this.#socket, channelRoom(joined.name));
+    this.#presenceBuckets.delete(joined.name);
+    const room = channelRoom(joined.name);
+    this.#hub.leave(this.#socket, room);
+    if (joined.impl.contract._definition.presence != null) {
+      presenceFor(this.#hub).untrack(room, this.#socket);
+    }
   }
 
   async #runLeave(joined: Joined, reason: LeaveReason): Promise<void> {
@@ -459,9 +536,29 @@ class ChannelSession {
       checkOutbound(schema, payload, true, `serverEvent "${event}"`);
     };
     const target = () => this.#hub.channel(name);
+    const presenceDef = def.contract._definition.presence;
+    const room = channelRoom(name);
+    const presence =
+      presenceDef == null
+        ? undefined
+        : {
+            update: (meta: unknown) => {
+              checkOutbound(
+                presenceDef.meta,
+                meta,
+                this.#env.development,
+                `presence meta of "${name}"`,
+              );
+              return presenceFor(this.#hub).update(room, this.#socket, meta);
+            },
+            list: () => presenceFor(this.#hub).list(room),
+            has: (key: string) => presenceFor(this.#hub).has(room, key),
+            keys: () => presenceFor(this.#hub).keys(room),
+          };
 
     return {
       name,
+      presence,
       broadcast: (event: string, payload: unknown) => {
         check(event, payload);
         return target().send(event, payload);
@@ -536,6 +633,45 @@ class ChannelSession {
   #send(frame: string): void {
     this.#socket.send(frame);
   }
+}
+
+/** Client presence updates allowed per channel per socket: one per second. */
+const PRESENCE_UPDATE_INTERVAL_MS = 1_000;
+
+const CHANNEL_ROOM_PREFIX = channelRoom("");
+const fanOutInstalled = new WeakSet<WsHub>();
+const LOCAL_ONLY: RoomFilter = {
+  exceptIds: new Set(),
+  exceptKeys: new Set(),
+  onlyKeys: null,
+};
+
+/**
+ * The hub's presence registry, with presence diffs of channel topics fanned
+ * out to the channel's *local* members — every node derives the same diffs
+ * from replicated state, so nothing is re-published over the transport.
+ */
+function presenceFor(hub: WsHub): PresenceRegistry {
+  const registry = hub._presenceRegistry();
+  if (!fanOutInstalled.has(hub)) {
+    fanOutInstalled.add(hub);
+    registry.onDiff((topic, diff) => {
+      if (!topic.startsWith(CHANNEL_ROOM_PREFIX)) return;
+      const ch = topic.slice(CHANNEL_ROOM_PREFIX.length);
+      hub._sendRoom(
+        topic,
+        encodeFrame({
+          t: "presence_diff",
+          ch,
+          joins: diff.joins,
+          leaves: diff.leaves,
+        }),
+        LOCAL_ONLY,
+        false,
+      );
+    });
+  }
+  return registry;
 }
 
 /** Validate a client payload; no schema means the payload is ignored. */

@@ -25,6 +25,7 @@
  * - `limits.ts`        — rate limiting and connection counting
  * - `helpers.ts`       — handshake helpers
  * - `hub.ts`           — `WsHub`, keyed registry + server-side rooms
+ * - `presence.ts`      — replicated presence (`hub.presence(topic)`)
  * - `tickets.ts`       — `WsTickets`, single-use handshake tickets
  * - `typed.ts`         — `TypedWsConnection` for `c.ws().messages()` contracts
  * - `route-builder.ts` — `WsRouteBuilder`
@@ -40,11 +41,13 @@ export type {
   ChannelFactory,
   ChannelHandlerArgs,
   ChannelImplDefinition,
+  ChannelPresence,
   ClientEventName,
   EventFn,
   JoinFn,
   LeaveFn,
   LeaveReason,
+  PresenceFn,
   ServerEventName,
   ServerEventPayload,
 } from "./channels/channel.ts";
@@ -95,6 +98,18 @@ export { WsMessage } from "./message.ts";
 export type { OriginPolicy, OriginPredicate, OriginSource } from "./origin.ts";
 // Origin policy
 export { createOriginPolicy, originSourcesFromCors } from "./origin.ts";
+export type {
+  PresenceDiff,
+  PresenceEntry,
+  PresenceOptions,
+  PresenceState,
+} from "./presence.ts";
+// Presence
+export {
+  PresenceLimitError,
+  PresenceRegistry,
+  PresenceTopic,
+} from "./presence.ts";
 export type {
   ChannelCoverage,
   CompleteChannelImpl,

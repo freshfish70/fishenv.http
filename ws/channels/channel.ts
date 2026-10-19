@@ -48,8 +48,28 @@ export type ServerEventPayload<C, E> = E extends keyof ServerEvents<C>
 /** Why a channel was left; passed to `.leave()` handlers. */
 export type LeaveReason = "client" | "disconnect" | "kicked" | "server";
 
+type PresenceMetaIn<C> = [Shape<C>["presenceMeta"]] extends [never]
+  ? never
+  : Shape<C>["presenceMeta"] extends { in: infer M }
+    ? M
+    : never;
+
+/** Presence of the current channel, from a handler's point of view. */
+export interface ChannelPresence<M> {
+  /** Change the current socket's meta (it must be tracked). */
+  update(meta: M): boolean;
+  /** Cluster-wide `{ [key]: { ref, meta }[] }`. */
+  list(): Record<string, { ref: string; meta: M }[]>;
+  has(key: string): boolean;
+  keys(): string[];
+}
+
 /** The `channel` argument of every handler: actions scoped to this channel. */
 export interface ChannelContext<C> {
+  /** Only on channels whose contract declares `.presence()`. */
+  readonly presence: [PresenceMetaIn<C>] extends [never]
+    ? undefined
+    : ChannelPresence<PresenceMetaIn<C>>;
   /** Concrete channel name, e.g. `rooms/42`. */
   readonly name: string;
   /** Everyone in the channel on every node, including the sender. */
@@ -98,6 +118,14 @@ export type AnyEventFn<Ctx, C> = (
   args: ChannelHandlerArgs<Ctx, C> & { event: string; data: unknown },
 ) => unknown;
 
+/**
+ * Decide how the joining socket appears in presence: return its key (e.g.
+ * the user id) and meta, or `null` to join without being tracked.
+ */
+export type PresenceFn<Ctx, C> = (
+  args: ChannelHandlerArgs<Ctx, C> & { data: Shape<C>["join"]["payload"] },
+) => MaybePromise<{ key: string; meta: PresenceMetaIn<C> } | null | undefined>;
+
 export type LeaveFn<Ctx, C> = (
   args: Omit<ChannelHandlerArgs<Ctx, C>, "channel"> & { reason: LeaveReason },
 ) => unknown;
@@ -117,6 +145,8 @@ export interface ChannelImplDefinition {
   any?: (args: any) => unknown;
   // biome-ignore lint/suspicious/noExplicitAny: erased handler types
   leave?: (args: any) => unknown;
+  // biome-ignore lint/suspicious/noExplicitAny: erased handler types
+  presence?: (args: any) => unknown;
 }
 
 type Status<Missing, Joined> = [Missing] extends [never]
@@ -254,6 +284,19 @@ export class ChannelImpl<
    */
   onAny(fn: AnyEventFn<Ctx, C>): ChannelImpl<Ctx, C, Handled, Joined> {
     return this.#next({ any: fn });
+  }
+
+  /**
+   * Track joining sockets in presence (contract must declare `.presence()`).
+   * Untracked automatically on leave, kick and disconnect.
+   */
+  presence(fn: PresenceFn<Ctx, C>): ChannelImpl<Ctx, C, Handled, Joined> {
+    if (this.contract._definition.presence == null) {
+      throw new Error(
+        `${this.contract.name}: .presence() requires presence in the channel contract`,
+      );
+    }
+    return this.#next({ presence: fn });
   }
 
   /** Runs when the socket leaves for any reason (client, disconnect, kick). */

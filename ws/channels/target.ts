@@ -6,6 +6,7 @@
 import type { AnyChannelContract } from "../../contract/index.ts";
 import type { WsConnection } from "../connection.ts";
 import type { WsHub, WsRoomTarget } from "../hub.ts";
+import type { PresenceTopic } from "../presence.ts";
 import type { ServerEventName, ServerEventPayload } from "./channel.ts";
 import { eventFrame } from "./protocol.ts";
 
@@ -20,12 +21,19 @@ export function channelRoom(name: string): string {
 
 export class WsChannelTarget<C = AnyChannelContract> {
   readonly name: string;
+  readonly #hub: WsHub;
   readonly #room: WsRoomTarget;
 
   /** @internal Use `hub.channel(name)`. */
   constructor(hub: WsHub, name: string, room?: WsRoomTarget) {
     this.name = name;
+    this.#hub = hub;
     this.#room = room ?? hub.to(channelRoom(name));
+  }
+
+  /** Who is in this channel, cluster-wide (contracts with `.presence()`). */
+  get presence(): PresenceTopic {
+    return this.#hub.presence(channelRoom(this.name));
   }
 
   /** Push an event to matching members on every node. Returns the local count. */
@@ -63,6 +71,6 @@ export class WsChannelTarget<C = AnyChannelContract> {
   }
 
   #derive(room: WsRoomTarget): WsChannelTarget<C> {
-    return new WsChannelTarget<C>(undefined as never, this.name, room);
+    return new WsChannelTarget<C>(this.#hub, this.name, room);
   }
 }
