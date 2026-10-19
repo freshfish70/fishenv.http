@@ -56,6 +56,7 @@ export type {
   Transport,
   TransportBridge,
   TransportEnvelope,
+  WithoutOrigin,
 } from "./transport.ts";
 // Transport (shared by SSE and WS hubs)
 export { createMemoryTransport, createTransportBridge } from "./transport.ts";

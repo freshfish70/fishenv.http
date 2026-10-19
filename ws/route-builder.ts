@@ -23,6 +23,7 @@ import {
   negotiateProtocol,
   UpgradeRequiredError,
 } from "./helpers.ts";
+import type { WsHub } from "./hub.ts";
 import { createLifecycle } from "./lifecycle.ts";
 import { ConnectionCounter, type WsConnectionLimit } from "./limits.ts";
 import {
@@ -220,6 +221,20 @@ export class WsRouteBuilder<
       this.#options.protocols = [...handler.protocols];
     }
     return this.#finish(handler.setup, handler.onBuild?.bind(handler));
+  }
+
+  /**
+   * Terminal shorthand: resolve a hub from the container and register the
+   * socket under the key derived from the handshake (e.g. the user id).
+   */
+  subscribe<H extends WsHub>(
+    // biome-ignore lint/suspicious/noExplicitAny: intentional any
+    token: abstract new (...args: any[]) => H,
+    key: (args: WsHandlerArgs<RouterCtx & RouteCtx, Params>) => string,
+  ): FinishedRoute {
+    return this.handle((args) => {
+      args.container.get(token).add(key(args), args.socket);
+    });
   }
 
   /**

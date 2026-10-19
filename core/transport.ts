@@ -17,11 +17,14 @@ export interface Transport<M extends TransportEnvelope = TransportEnvelope> {
   subscribe(onMessage: (message: M) => void): () => void;
 }
 
+/** `Omit` that preserves discriminated unions. */
+export type WithoutOrigin<M> = M extends unknown ? Omit<M, "origin"> : never;
+
 export interface TransportBridge<M extends TransportEnvelope> {
   /** Random per-process id stamped into `origin`. */
   readonly nodeId: string;
   /** Stamp `origin` and publish; failures are logged, never thrown. */
-  publish(message: Omit<M, "origin">): void;
+  publish(message: WithoutOrigin<M>): void;
   /** Detach from the transport. Idempotent. */
   close(): void;
 }
@@ -56,7 +59,10 @@ export function createTransportBridge<M extends TransportEnvelope>(
     publish(message) {
       if (transport == null) return;
       try {
-        const result = transport.publish({ ...message, origin: nodeId } as M);
+        const result = transport.publish({
+          ...message,
+          origin: nodeId,
+        } as unknown as M);
         if (result instanceof Promise) result.catch(fail);
       } catch (err) {
         fail(err);

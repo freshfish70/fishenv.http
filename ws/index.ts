@@ -24,6 +24,8 @@
  * - `origin.ts`        — CSWSH origin policy
  * - `limits.ts`        — rate limiting and connection counting
  * - `helpers.ts`       — handshake helpers
+ * - `hub.ts`           — `WsHub`, keyed registry + server-side rooms
+ * - `tickets.ts`       — `WsTickets`, single-use handshake tickets
  * - `route-builder.ts` — `WsRouteBuilder`
  * - `router.ts`        — `withWs()` mixin
  */
@@ -38,6 +40,14 @@ export {
   requestedProtocols,
   UpgradeRequiredError,
 } from "./helpers.ts";
+export type {
+  WirePayload,
+  WsHubOptions,
+  WsHubPayload,
+  WsTransportMessage,
+} from "./hub.ts";
+// Hub
+export { encodeFrame, WsHub, WsRoomTarget } from "./hub.ts";
 export type { LifecycleOptions, WsSetupFn } from "./lifecycle.ts";
 // Lifecycle (for custom routes built on core's requestUpgrade)
 export { createLifecycle } from "./lifecycle.ts";
@@ -61,6 +71,9 @@ export { WsRouteBuilder } from "./route-builder.ts";
 export type { WsRouter } from "./router.ts";
 // Router mixin
 export { withWs } from "./router.ts";
+export type { TicketStore, WsTicketsOptions } from "./tickets.ts";
+// Tickets
+export { bearerFromProtocol, MemoryTicketStore, WsTickets } from "./tickets.ts";
 export type {
   WsCleanupFn,
   WsConnectionOptions,
