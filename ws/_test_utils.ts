@@ -2,6 +2,10 @@
 
 import { afterEach } from "bun:test";
 import {
+  type TestClient as BaseClient,
+  connect as baseConnect,
+} from "../core/_test_utils.ts";
+import {
   type HttpServer,
   type Logger,
   type Router,
@@ -96,4 +100,105 @@ export function handshake(
   return new Request(`http://localhost${path}`, {
     headers: handshakeHeaders(extra),
   });
+}
+
+// ── Channel protocol client ─────────────────────────────────────────────
+
+// biome-ignore lint/suspicious/noExplicitAny: test frames are loosely typed
+export type Frame = Record<string, any>;
+
+/**
+ * Speaks `fishenv.channels.v1`: buffers every server frame so tests can wait
+ * for a specific one regardless of interleaving.
+ */
+export class ChannelClient {
+  readonly raw: BaseClient;
+  #frames: Frame[] = [];
+  #waiters: { match: (f: Frame) => boolean; resolve: (f: Frame) => void }[] =
+    [];
+  #ref = 0;
+
+  constructor(raw: BaseClient) {
+    this.raw = raw;
+    void this.#pump();
+  }
+
+  async #pump(): Promise<void> {
+    for (;;) {
+      let msg: string | ArrayBuffer;
+      try {
+        msg = await this.raw.next(60_000);
+      } catch {
+        return;
+      }
+      const frame = JSON.parse(String(msg)) as Frame;
+      const i = this.#waiters.findIndex((w) => w.match(frame));
+      if (i >= 0) this.#waiters.splice(i, 1)[0]!.resolve(frame);
+      else this.#frames.push(frame);
+    }
+  }
+
+  /** Wait for (and consume) the first frame matching `match`. */
+  waitFrame(match: (f: Frame) => boolean, timeoutMs = 2000): Promise<Frame> {
+    const i = this.#frames.findIndex(match);
+    if (i >= 0) return Promise.resolve(this.#frames.splice(i, 1)[0]!);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error("timed out waiting for a frame")),
+        timeoutMs,
+      );
+      this.#waiters.push({
+        match,
+        resolve: (f) => {
+          clearTimeout(timer);
+          resolve(f);
+        },
+      });
+    });
+  }
+
+  /** Frames received but not consumed. */
+  get unread(): Frame[] {
+    return [...this.#frames];
+  }
+
+  send(frame: Frame): void {
+    this.raw.sendJson(frame);
+  }
+
+  /** Send with a fresh ref and resolve with the matching reply. */
+  request(frame: Frame): Promise<Frame> {
+    const ref = ++this.#ref;
+    this.send({ ...frame, ref });
+    return this.waitFrame((f) => f.t === "reply" && f.ref === ref);
+  }
+
+  join(ch: string, d?: unknown): Promise<Frame> {
+    return this.request({ t: "join", ch, d });
+  }
+
+  push(ch: string, ev: string, d?: unknown): Promise<Frame> {
+    return this.request({ t: "event", ch, ev, d });
+  }
+
+  leave(ch: string): Promise<Frame> {
+    return this.request({ t: "leave", ch });
+  }
+
+  nextEvent(ch: string, ev?: string): Promise<Frame> {
+    return this.waitFrame(
+      (f) => f.t === "event" && f.ch === ch && (ev == null || f.ev === ev),
+    );
+  }
+
+  close(): ReturnType<BaseClient["close"]> {
+    return this.raw.close();
+  }
+}
+
+export async function connectChannels(
+  url: string,
+  init?: { headers?: Record<string, string> },
+): Promise<ChannelClient> {
+  return new ChannelClient(await baseConnect(url, "fishenv.channels.v1", init));
 }

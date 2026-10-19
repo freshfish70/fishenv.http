@@ -28,9 +28,42 @@
  * - `tickets.ts`       — `WsTickets`, single-use handshake tickets
  * - `typed.ts`         — `TypedWsConnection` for `c.ws().messages()` contracts
  * - `route-builder.ts` — `WsRouteBuilder`
+ * - `channels/`        — the opt-in channel protocol: `channel()`, `channels()`,
+ *                        wire format, `hub.channel(name)` targets
  * - `router.ts`        — `withWs()` mixin
  */
 
+export type {
+  AnyChannelImpl,
+  AnyEventFn,
+  ChannelContext,
+  ChannelFactory,
+  ChannelHandlerArgs,
+  ChannelImplDefinition,
+  ClientEventName,
+  EventFn,
+  JoinFn,
+  LeaveFn,
+  LeaveReason,
+  ServerEventName,
+  ServerEventPayload,
+} from "./channels/channel.ts";
+// Channels (Layer 3)
+export { ChannelImpl, channel } from "./channels/channel.ts";
+export type { ChannelsOptions } from "./channels/handler.ts";
+export { channels } from "./channels/handler.ts";
+export type {
+  ClientFrame,
+  PresenceEntries,
+  ServerFrame,
+  WireError,
+} from "./channels/protocol.ts";
+export {
+  CHANNELS_PROTOCOL,
+  FrameError,
+  parseClientFrame,
+} from "./channels/protocol.ts";
+export { channelRoom, WsChannelTarget } from "./channels/target.ts";
 export type { WsCloseListener, WsMessageListener } from "./connection.ts";
 // Connection
 export { WsConnection } from "./connection.ts";
@@ -42,6 +75,8 @@ export {
   UpgradeRequiredError,
 } from "./helpers.ts";
 export type {
+  RoomFilter,
+  WireFilter,
   WirePayload,
   WsHubOptions,
   WsHubPayload,
@@ -61,6 +96,8 @@ export type { OriginPolicy, OriginPredicate, OriginSource } from "./origin.ts";
 // Origin policy
 export { createOriginPolicy, originSourcesFromCors } from "./origin.ts";
 export type {
+  ChannelCoverage,
+  CompleteChannelImpl,
   WsHandlerArgs,
   WsHandlerFn,
   WsProtocolHandler,

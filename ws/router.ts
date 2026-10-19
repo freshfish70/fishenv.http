@@ -36,7 +36,8 @@ export interface WsRouter<Ctx extends Record<string, unknown>> {
     Ctx,
     Record<never, never>,
     InferSocket<C>["params"],
-    SocketOf<C>
+    SocketOf<C>,
+    C
   >;
 }
 

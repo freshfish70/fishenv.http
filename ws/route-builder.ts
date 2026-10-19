@@ -1,6 +1,10 @@
 /** Fluent builder for WebSocket routes, layered on the core `RouteBuilder`. */
 
-import type { WsContractDefinition } from "../contract/index.ts";
+import type {
+  AnyChannelContract,
+  WsContract,
+  WsContractDefinition,
+} from "../contract/index.ts";
 import {
   type AnySchema,
   BadRequestError,
@@ -18,6 +22,13 @@ import {
   requestUpgrade,
   TooManyRequestsError,
 } from "../core/index.ts";
+import {
+  type AnyChannelImpl,
+  type ChannelFactory,
+  type ChannelImplDefinition,
+  channel,
+} from "./channels/channel.ts";
+import { type ChannelsOptions, channels } from "./channels/handler.ts";
 import type { WsConnection } from "./connection.ts";
 import {
   isWebSocketUpgrade,
@@ -119,6 +130,43 @@ type Inner<
   undefined
 >;
 
+/**
+ * A channel implementation that `.channels()` accepts for a given ctx.
+ * Only the phantom members are compared, so the check is exactly: "is it
+ * complete?" and "does the route's ctx satisfy what the handlers need?".
+ */
+export interface CompleteChannelImpl<Ctx> {
+  readonly _ctx?: (ctx: Ctx) => void;
+  readonly _status?: "complete";
+  readonly contract: AnyChannelContract;
+  readonly _definition: ChannelImplDefinition;
+}
+
+type ImplNames<Impls extends readonly unknown[]> = Impls[number] extends infer I
+  ? I extends { readonly contract: { readonly name: infer N } }
+    ? N
+    : never
+  : never;
+
+type ContractNames<K> =
+  // biome-ignore lint/suspicious/noExplicitAny: matching any socket contract
+  K extends WsContract<any, any, "channels", infer Cs, any, any>
+    ? Cs extends readonly AnyChannelContract[]
+      ? Cs[number]["name"]
+      : never
+    : never;
+
+/** `unknown` when the implementations match the socket contract; a named error otherwise. */
+export type ChannelCoverage<Impls extends readonly unknown[], K> = [K] extends [
+  undefined,
+]
+  ? unknown
+  : [Exclude<ContractNames<K>, ImplNames<Impls>>] extends [never]
+    ? [Exclude<ImplNames<Impls>, ContractNames<K>>] extends [never]
+      ? unknown
+      : { __channelNotInContract: Exclude<ImplNames<Impls>, ContractNames<K>> }
+    : { __missingChannel: Exclude<ContractNames<K>, ImplNames<Impls>> };
+
 const ServiceUnavailable = () =>
   new HttpError(503, "Too many open connections");
 
@@ -134,6 +182,7 @@ export class WsRouteBuilder<
   RouteCtx extends Record<string, unknown>,
   Params extends Record<string, unknown>,
   Socket = WsConnection,
+  Contract = undefined,
 > {
   readonly #inner: Inner<RouterCtx, RouteCtx, Params>;
   readonly #options: WsRouteOptions;
@@ -213,7 +262,13 @@ export class WsRouteBuilder<
   param<Name extends string & keyof Params, S extends AnySchema>(
     name: Name,
     schema: S,
-  ): WsRouteBuilder<RouterCtx, RouteCtx, MergeParam<Params, Name, S>, Socket> {
+  ): WsRouteBuilder<
+    RouterCtx,
+    RouteCtx,
+    MergeParam<Params, Name, S>,
+    Socket,
+    Contract
+  > {
     if (this.#options.contract != null) {
       throw new Error(
         `param("${name}"): params of contract routes come from the contract`,
@@ -227,10 +282,40 @@ export class WsRouteBuilder<
 
   with<NewCtx extends Record<string, unknown>>(
     mw: MiddlewareFn<RouterCtx & RouteCtx, NewCtx>,
-  ): WsRouteBuilder<RouterCtx, RouteCtx & NewCtx, Params, Socket> {
+  ): WsRouteBuilder<RouterCtx, RouteCtx & NewCtx, Params, Socket, Contract> {
     return new WsRouteBuilder(
       this.#inner.with(mw),
       cloneOptions(this.#options),
+    );
+  }
+
+  /**
+   * Terminal: serve the channel protocol. Every implementation must be
+   * complete (all client events handled, join authorized or `.public()`),
+   * and on contract routes the set must match the socket contract exactly.
+   *
+   * Pass a callback to get a `channel` factory typed with this route's ctx:
+   * `.channels((channel) => [channel(room).join(({ ctx }) => …)])`.
+   */
+  channels<
+    const Impls extends readonly CompleteChannelImpl<RouterCtx & RouteCtx>[],
+  >(
+    impls:
+      | (Impls & ChannelCoverage<Impls, Contract>)
+      | ((
+          channel: ChannelFactory<RouterCtx & RouteCtx>,
+        ) => Impls & ChannelCoverage<Impls, Contract>),
+    options?: ChannelsOptions,
+  ): FinishedRoute {
+    const list =
+      typeof impls === "function"
+        ? impls(channel.withContext<RouterCtx & RouteCtx>())
+        : impls;
+    return this.handleWith(
+      channels(list as readonly AnyChannelImpl[], options) as WsProtocolHandler<
+        RouterCtx & RouteCtx,
+        Params
+      >,
     );
   }
 
