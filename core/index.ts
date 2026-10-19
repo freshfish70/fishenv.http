@@ -64,6 +64,7 @@ export type {
   AnySchema,
   BasePathParams,
   BeforeInterceptorFn,
+  BuildEnv,
   DIContainer,
   ErrorHandlerFn,
   ExtractParams,
@@ -85,6 +86,7 @@ export type {
   NotFoundHandler,
   ResolvedInput,
   RouteDefinition,
+  RouteGuardFn,
   RouteMeta,
   ValibotSchema,
 } from "./types.ts";

@@ -8,6 +8,6 @@
     "rootDir": ".",
     "outDir": "dist"
   },
-  "include": ["core", "sse", "contract", "static"],
+  "include": ["core", "sse", "ws", "contract", "static"],
   "exclude": ["**/*.test.ts", "**/_test_utils.ts"]
 }

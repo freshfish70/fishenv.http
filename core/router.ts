@@ -14,6 +14,7 @@ import {
 } from "./route-builder.ts";
 import type {
   BasePathParams,
+  BuildEnv,
   DIContainer,
   ErrorHandlerFn,
   HttpMethod,
@@ -88,6 +89,12 @@ export class Router<
   #errorHandler?: ErrorHandlerFn;
   #notFoundHandler?: NotFoundHandler;
   #cors: CompiledCors | null = null;
+  #corsOptions: CorsOptions | null = null;
+  #env: Omit<BuildEnv, "cors"> = {
+    development: false,
+    logger: console,
+    websocket: {},
+  };
   #built = false;
   #matcher: Matcher | null = null;
   #container: DIContainer = stubContainer;
@@ -298,6 +305,7 @@ export class Router<
 
   cors(options: CorsOptions): this {
     this.#cors = buildCors(options);
+    this.#corsOptions = options;
     return this;
   }
 
@@ -320,6 +328,11 @@ export class Router<
     this.#container = container;
   }
 
+  /** @internal Set by serve() before build(); forwarded to route `onBuild` hooks. */
+  _setEnv(env: Partial<Omit<BuildEnv, "cors">>): void {
+    this.#env = { ...this.#env, ...env };
+  }
+
   // ── Build ────────────────────────────────────────────────────────────
 
   build(): void {
@@ -328,7 +341,9 @@ export class Router<
     const matcher = new Matcher();
     const allRoutes = this.#collectRoutes();
 
+    const env: BuildEnv = { ...this.#env, cors: this.#corsOptions };
     for (const route of allRoutes) {
+      route.onBuild?.(env);
       matcher.add(route.method, route.path, route);
     }
 
@@ -530,6 +545,11 @@ export function serve(
   if (options?.container) {
     app._setContainer(options.container);
   }
+  app._setEnv({
+    development: options?.development ?? false,
+    logger: options?.logger ?? console,
+    websocket: options?.websocket ?? {},
+  });
   app.build(); // idempotent
   const sockets = createWebSocketRuntime(options?.websocket, options?.logger);
   const server = Bun.serve({

@@ -79,6 +79,20 @@
    lookup), `message` can fire before setup finishes. We need to queue inbound messages until `open` settles.
 10. **No `MessageEvent` server-side.** Messages arrive as `string | Buffer`.
     This replaces decision Q29 ("expose `MessageEvent` as-is"), which assumed Deno.
+11. **(Found during implementation)** Frames above the *server-wide*
+    `maxPayloadLength` are dropped by Bun without a close frame, so clients
+    see `1006`, not `1009`. Per-route `.maxMessageSize()` is enforced in our
+    lifecycle and does send a real `1009`.
+12. **(Found during implementation)** If the server doesn't set
+    `Sec-WebSocket-Protocol`, Bun **echoes the client's first offered
+    subprotocol** (and an empty header just produces a duplicate). Routes
+    without `.protocols()` therefore look as if they accept anything the client
+    offers, and `socket.protocol` stays `null`. Anything that relies on
+    subprotocols (channels, `bearerFromProtocol`) must negotiate explicitly.
+13. **Guards before router middleware.** Router-level middleware runs before
+    route middleware, so the origin check uses a core `guards` hook on the
+    route definition. Root `cors()` inheritance and build-time warnings use an
+    `onBuild(env)` hook, because ws routes may live on mounted child routers.
 
 ---
 

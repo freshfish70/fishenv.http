@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { ForbiddenError } from "./error.ts";
 import { type CtxOf, Router, r, serve } from "./router.ts";
 import type { MiddlewareFn } from "./types.ts";
 
@@ -595,5 +596,87 @@ describe("serve() error hook", () => {
     } finally {
       await server.stop(true);
     }
+  });
+});
+
+// ── Route guards & onBuild hooks (used by optional modules like ws) ────
+
+describe("route guards", () => {
+  it("run before router-level middleware and can reject", async () => {
+    const order: string[] = [];
+    const app = r().use(() => {
+      order.push("middleware");
+      return {};
+    });
+    const route = app.get("/g").handle(() => new Response("ok"));
+    route.definition.guards = [
+      (req) => {
+        order.push("guard");
+        if (req.headers.get("x-deny")) throw new ForbiddenError();
+      },
+    ];
+    app.build();
+
+    const ok = await app.fetch(req("/g"));
+    expect(ok.status).toEqual(200);
+    expect(order).toEqual(["guard", "middleware"]);
+
+    order.length = 0;
+    const denied = await app.fetch(
+      new Request(`${BASE}/g`, { headers: { "x-deny": "1" } }),
+    );
+    expect(denied.status).toEqual(403);
+    expect(order).toEqual(["guard"]);
+  });
+
+  it("still run first when the route lives on a mounted child", async () => {
+    const order: string[] = [];
+    const parent = r().use(() => {
+      order.push("parent-mw");
+      return {};
+    });
+    const child = r({ prefix: "/c" });
+    const route = child.get("/x").handle(() => new Response("ok"));
+    route.definition.guards = [() => void order.push("guard")];
+    parent.add(child);
+    parent.build();
+
+    await parent.fetch(req("/c/x"));
+    expect(order).toEqual(["guard", "parent-mw"]);
+  });
+});
+
+describe("onBuild hook", () => {
+  it("receives root cors options and serve env", () => {
+    const app = r().cors({ origin: ["https://a.test"] });
+    const child = r();
+    let env: unknown;
+    const route = child.get("/x").handle(() => new Response("ok"));
+    route.definition.onBuild = (e) => {
+      env = e;
+    };
+    app.add(child);
+    app._setEnv({ development: true, websocket: { idleTimeout: 5 } });
+    app.build();
+
+    expect(env).toMatchObject({
+      cors: { origin: ["https://a.test"] },
+      development: true,
+      websocket: { idleTimeout: 5 },
+    });
+  });
+
+  it("defaults to no cors, production, empty websocket options", () => {
+    const app = r();
+    let env: unknown;
+    app.get("/x").handle(() => new Response("ok")).definition.onBuild = (e) => {
+      env = e;
+    };
+    app.build();
+    expect(env).toMatchObject({
+      cors: null,
+      development: false,
+      websocket: {},
+    });
   });
 });
