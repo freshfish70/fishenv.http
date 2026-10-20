@@ -102,11 +102,25 @@ describe("Range (handled by Bun)", () => {
 });
 
 describe("over the network", () => {
-  it("serves HEAD without a body", async () => {
+  it("serves HEAD with the file's Content-Length and no body", async () => {
     const res = await fetch(`${base}/static/digits.txt`, { method: "HEAD" });
     expect(res.status).toBe(200);
+    expect(res.headers.get("content-length")).toBe("10");
+    expect(res.headers.get("accept-ranges")).toBe("bytes");
     expect(res.headers.get("etag")).not.toBeNull();
     expect(await res.text()).toBe("");
+  });
+
+  it("advertises Accept-Ranges on full responses", async () => {
+    const res = await get("/static/digits.txt");
+    expect(res.headers.get("accept-ranges")).toBe("bytes");
+    expect(res.headers.get("content-length")).toBe("10");
+  });
+
+  it("does not duplicate Accept-Ranges on partial responses", async () => {
+    const res = await get("/static/digits.txt", { range: "bytes=0-1" });
+    expect(res.status).toBe(206);
+    expect(res.headers.get("accept-ranges")).toBe("bytes");
   });
 
   it("does not leak absolute paths in 404 responses", async () => {

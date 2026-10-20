@@ -359,7 +359,17 @@ export class Router<
    * Entry point for request handling — available after build().
    * Use directly for testing without binding a port.
    */
-  readonly fetch = async (req: Request): Promise<Response> => {
+  readonly fetch = (req: Request): Promise<Response> => this.#handle(req, true);
+
+  /**
+   * @internal Used by serve(): HEAD responses keep their body so Bun can
+   * derive `Content-Length` from it before dropping it (it does not drain
+   * streams to do so).
+   */
+  readonly _serverFetch = (req: Request): Promise<Response> =>
+    this.#handle(req, false);
+
+  async #handle(req: Request, stripHeadBody: boolean): Promise<Response> {
     if (!this.#built || !this.#matcher) {
       throw new Error("Router not built. Call .build() first.");
     }
@@ -422,8 +432,9 @@ export class Router<
       response = this.#cors.applyTo(req, response);
     }
 
-    // HEAD: strip body
-    if (isHead) {
+    // HEAD: strip body. Cancel it so a stream (e.g. SSE) is not left open.
+    if (isHead && stripHeadBody) {
+      response.body?.cancel().catch(() => {});
       return new Response(null, {
         status: response.status,
         headers: response.headers,
@@ -431,7 +442,7 @@ export class Router<
     }
 
     return response;
-  };
+  }
 
   // ── Internal ─────────────────────────────────────────────────────────
 
@@ -558,7 +569,7 @@ export function serve(
     development: options?.development ?? false,
     idleTimeout: options?.idleTimeout ?? 0,
     fetch: async (req, server) =>
-      completeUpgrade(req, await app.fetch(req), server),
+      completeUpgrade(req, await app._serverFetch(req), server),
     websocket: sockets.websocket,
     // Errors outside the router's error chain (e.g. a `Bun.file` body that
     // fails to open while the response is sent) would otherwise reach Bun's

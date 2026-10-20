@@ -163,6 +163,76 @@ describe("Router HEAD fallback", () => {
     expect(res.headers.get("x-custom")).toEqual("yes");
     expect(await res.text()).toEqual(""); // body stripped
   });
+
+  it("cancels a stripped streaming body", async () => {
+    let cancelled = false;
+    const app = r();
+    app.get("/stream").handle(
+      () =>
+        new Response(
+          new ReadableStream({
+            cancel() {
+              cancelled = true;
+            },
+          }),
+        ),
+    );
+    app.build();
+
+    await app.fetch(req("/stream", "HEAD"));
+    expect(cancelled).toBe(true);
+  });
+});
+
+describe("serve() HEAD", () => {
+  it("reports the GET Content-Length without sending a body", async () => {
+    const app = r();
+    app.get("/text").handle(() => new Response("payload"));
+    app.get("/file").handle(() => new Response(Bun.file(import.meta.path)));
+    const server = serve(app, { port: 0, hostname: "127.0.0.1" });
+    const base = `http://127.0.0.1:${server.port}`;
+    try {
+      for (const path of ["/text", "/file"]) {
+        const get = await fetch(base + path);
+        const head = await fetch(base + path, { method: "HEAD" });
+        const length = get.headers.get("content-length");
+        expect(Number(length)).toBeGreaterThan(0);
+        expect(head.headers.get("content-length")).toBe(length);
+        expect(await head.text()).toBe("");
+        await get.arrayBuffer();
+      }
+    } finally {
+      await server.stop(true);
+    }
+  });
+
+  it("does not drain an endless stream to answer HEAD", async () => {
+    let pulls = 0;
+    const app = r();
+    app.get("/endless").handle(
+      () =>
+        new Response(
+          new ReadableStream({
+            pull(controller) {
+              pulls++;
+              controller.enqueue(new TextEncoder().encode("x"));
+            },
+          }),
+        ),
+    );
+    const server = serve(app, { port: 0, hostname: "127.0.0.1" });
+    try {
+      const res = await fetch(`http://127.0.0.1:${server.port}/endless`, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(2_000),
+      });
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("");
+      expect(pulls).toBeLessThan(5);
+    } finally {
+      await server.stop(true);
+    }
+  });
 });
 
 // ── Middleware ──────────────────────────────────────────────────────────

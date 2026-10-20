@@ -70,6 +70,8 @@ export function buildFileResponse(
     headers.set("Last-Modified", new Date(file.mtimeMs).toUTCString());
   }
   if (file.encoding) headers.set("Content-Encoding", file.encoding);
+  // Bun adds it itself to 206 responses; setting it too would duplicate it.
+  if (!req.headers.has("range")) headers.set("Accept-Ranges", "bytes");
 
   for (const [k, v] of Object.entries(cfg.headers)) headers.set(k, v);
   if (extras.cacheControl) headers.set("Cache-Control", extras.cacheControl);
