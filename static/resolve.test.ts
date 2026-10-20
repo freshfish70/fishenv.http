@@ -208,6 +208,39 @@ describe("locate", () => {
     });
   });
 
+  describe("canonical policy check", () => {
+    it("passes the on-disk segments, not the requested alias", async () => {
+      const seen: string[][] = [];
+      const allow = (segments: string[]) => {
+        seen.push(segments);
+        return true;
+      };
+      await locate(fx.root, ["link-dir-in", "guide.txt"], "within-root", allow);
+      expect(seen).toEqual([["docs", "guide.txt"]]);
+    });
+
+    it("rejects when the canonical name is refused, in every mode", async () => {
+      const noDotfiles = (segments: string[]) =>
+        !segments.some((s) => s.startsWith("."));
+      for (const policy of ["within-root", "follow"] as const) {
+        expect(
+          await locate(fx.root, ["env-alias"], policy, noDotfiles),
+        ).toBeNull();
+      }
+      // "deny" refuses the link itself before any canonical check
+      expect(
+        await locate(fx.root, ["env-alias"], "deny", noDotfiles),
+      ).toBeNull();
+    });
+
+    it("is skipped for targets outside the root under follow", async () => {
+      const allow = () => false;
+      expect(
+        await locate(fx.root, ["link-out"], "follow", allow),
+      ).not.toBeNull();
+    });
+  });
+
   it("refuses FIFOs instead of hanging on them", async () => {
     if (!fx.hasFifo) return;
     for (const policy of ["within-root", "deny", "follow"] as const) {

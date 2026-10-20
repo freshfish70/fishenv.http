@@ -115,6 +115,7 @@ describe("compileStaticOptions", () => {
       expect(() => compile({ fallback: "../secret.txt" })).toThrow(/invalid/);
       expect(() => compile({ fallback: "link-out" })).toThrow(/not a file/);
       expect(() => compile({ fallback: ".env" })).toThrow(/hidden/);
+      expect(() => compile({ fallback: "env-alias" })).toThrow(/not a file/);
       expect(() =>
         compile({
           fallback: "index.html",

@@ -183,9 +183,12 @@ streams those.
 
 - **In scope:** any attacker-controlled request URL and headers.
 - **Trusted:** the configured root and the files the app owner puts there.
-  When others can write to the root (uploads), use `untrusted: true`. Even
-  then, a local attacker who can swap symlinks during a request (TOCTOU) is
-  out of scope for v1. See the spike below.
+  When others can write to the root (uploads), use `untrusted: true`.
+  Static links, such as symlinks extracted from an uploaded archive, are
+  handled: they are refused under `"deny"`, and under the other modes the
+  canonical-name policy check applies. A local attacker who can swap path
+  components for symlinks *during* a request (TOCTOU) is out of scope. See
+  "Step 7 results".
 
 ### Request → file pipeline
 
@@ -384,5 +387,27 @@ Deviations and findings:
 - **`:path*` mounted at a prefix.** It also matches the bare prefix (param
   absent), so no separate `get("/")` route is needed.
 
-Open: step 7. The TOCTOU-safe `O_NOFOLLOW` + `Bun.file(fd)` path and the
-Windows verification (8.3 short names vs deny rules) are not done yet.
+### Step 7 results (2026-10-20)
+
+**Aliases (fixed).** The spike found a real bypass under the default
+`symlinks: "within-root"`: an in-root symlink to a hidden or denied file
+served it (`env-alias -> .env`, `git-alias/config`, `map-alias.txt -> x.map`).
+Windows 8.3 short names (`SECRE~1.KEY`), case folding on case-insensitive
+disks and Unicode normalization variants are the same class of problem: two
+names for one file, with policy checked only against the requested name.
+`locate()` now realpaths in every mode and re-applies dotfile and deny rules
+(not `exclude`, which is URL space) to the canonical in-root path. Under
+`"follow"`, targets outside the root have no in-root name and are not
+re-checked. Covered by tests and mutation-checked. Not yet run on real
+Windows or macOS; that depends on Bun's `realpath` returning long, on-disk
+names there.
+
+**TOCTOU-safe open (not adopted).** On Bun 1.4.3, `Bun.file(fd)` streams and
+keeps Range/HEAD working, but Bun never closes the fd: a raw fd leaks once
+per request (12 → 312 open fds after 300 requests), and a `FileHandle` is
+reported as an error when GC closes it. There is no hook for when the
+response finishes, so the fd can't be closed safely. The only clean route is
+our own fd-backed stream, which gives up sendfile and Bun's Range handling.
+Out of scope for now. The race needs a local attacker who can swap path
+components for symlinks mid-request; that stays outside the threat model
+(see "Threat model"). Revisit if Bun gains fd ownership for `Bun.file(fd)`.

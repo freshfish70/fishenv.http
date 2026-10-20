@@ -86,41 +86,59 @@ export function isWithin(root: string, candidate: string): boolean {
 export type SymlinkPolicy = "within-root" | "deny" | "follow";
 
 export interface Located {
-  /** Path to open. For `"within-root"` this is the resolved real path. */
+  /** Path to open: the resolved real path, except under `"follow"`. */
   abs: string;
   stat: Stats;
 }
 
 /**
+ * Policy check on the canonical (on-disk) segments of what was resolved.
+ * The request may have named it through an alias — an in-root symlink, a
+ * Windows 8.3 short name, other case on a case-insensitive disk, another
+ * Unicode normalization — so dotfile and deny rules must also hold here.
+ */
+export type CanonicalCheck = (segments: string[]) => boolean;
+
+/**
  * Steps 6–8: map validated segments to a regular file or directory inside
  * `root` (which must already be a real path). Anything else — missing,
- * escaping, a forbidden symlink, a FIFO/socket/device — is `null`.
+ * escaping, a forbidden symlink, a FIFO/socket/device, a canonical name
+ * that `allow` rejects — is `null`.
  */
 export async function locate(
   root: string,
   segments: string[],
   symlinks: SymlinkPolicy,
+  allow?: CanonicalCheck,
 ): Promise<Located | null> {
   const candidate = path.join(root, ...segments);
   if (!isWithin(root, candidate)) return null;
 
   try {
-    let abs = candidate;
     if (symlinks === "deny") {
       let current = root;
       for (const segment of segments) {
         current = path.join(current, segment);
         if ((await fsOps.lstat(current)).isSymbolicLink()) return null;
       }
-    } else if (symlinks === "within-root") {
-      abs = await fsOps.realpath(candidate);
-      if (!isWithin(root, abs)) return null;
     }
 
+    const real = await fsOps.realpath(candidate);
+    const inside = isWithin(root, real);
+    if (!inside && symlinks !== "follow") return null;
+    // Under "follow" a target outside the root was explicitly allowed;
+    // there is no in-root name to check rules against.
+    if (inside && allow && !allow(canonicalSegments(root, real))) return null;
+
+    const abs = symlinks === "follow" ? candidate : real;
     const st = await fsOps.stat(abs);
     if (!st.isFile() && !st.isDirectory()) return null;
     return { abs, stat: st };
   } catch {
     return null;
   }
+}
+
+function canonicalSegments(root: string, real: string): string[] {
+  return path.relative(root, real).split(path.sep).filter(Boolean);
 }

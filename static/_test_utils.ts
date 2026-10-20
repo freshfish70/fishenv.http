@@ -41,6 +41,8 @@ export interface Fixture {
  *     link-in -> hello.txt, link-dir-in -> docs
  *     link-out -> ../secret.txt, link-dir-out -> ../public-secrets
  *     dangling -> missing.txt, fifo (named pipe)
+ *     env-alias -> .env, git-alias -> .git, map-alias.txt -> app.js.map,
+ *     key-alias.txt -> Secret.KEY   (in-root aliases of hidden/denied files)
  * ```
  */
 export function createFixture(): Fixture {
@@ -87,6 +89,10 @@ export function createFixture(): Fixture {
   symlinkSync("../secret.txt", path.join(root, "link-out"));
   symlinkSync("../public-secrets", path.join(root, "link-dir-out"));
   symlinkSync("missing.txt", path.join(root, "dangling"));
+  symlinkSync(".env", path.join(root, "env-alias"));
+  symlinkSync(".git", path.join(root, "git-alias"));
+  symlinkSync("app.js.map", path.join(root, "map-alias.txt"));
+  symlinkSync("Secret.KEY", path.join(root, "key-alias.txt"));
 
   const fifo = Bun.spawnSync(["mkfifo", path.join(root, "fifo")]);
 

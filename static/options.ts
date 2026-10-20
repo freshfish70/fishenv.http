@@ -1,6 +1,11 @@
 import { realpathSync, statSync } from "node:fs";
 import path from "node:path";
-import { isSafeSegment, isWithin, type SymlinkPolicy } from "./resolve.ts";
+import {
+  type CanonicalCheck,
+  isSafeSegment,
+  isWithin,
+  type SymlinkPolicy,
+} from "./resolve.ts";
 import {
   applyRules,
   type CompiledRule,
@@ -64,6 +69,8 @@ export interface StaticConfig extends ResponseConfig {
   fallback?: string[];
   cache?: { ttlMs: number; maxEntries: number };
   windows: boolean;
+  /** `passesFilePolicy` bound to this config, for `locate()`. */
+  allowCanonical: CanonicalCheck;
 }
 
 function fail(message: string): never {
@@ -117,6 +124,20 @@ export function compileServeFileOptions(
 
 /** True when `segments` may be served at all (dotfiles, deny, exclude). */
 export function isServable(cfg: StaticConfig, segments: string[]): boolean {
+  const rel = segments.join("/");
+  if (cfg.exclude.some((re) => matchesGlob(re, rel))) return false;
+  return passesFilePolicy(cfg, segments);
+}
+
+/**
+ * Dotfile and deny rules. Unlike `exclude`, which carves out URL space,
+ * these protect files, so they are also applied to the canonical on-disk
+ * name of whatever a request resolves to.
+ */
+export function passesFilePolicy(
+  cfg: StaticConfig,
+  segments: string[],
+): boolean {
   if (cfg.dotfiles === "hide") {
     for (const segment of segments) {
       if (
@@ -127,9 +148,7 @@ export function isServable(cfg: StaticConfig, segments: string[]): boolean {
       }
     }
   }
-  const rel = segments.join("/");
-  if (cfg.exclude.some((re) => matchesGlob(re, rel))) return false;
-  return !applyRules(cfg.rules, rel).deny;
+  return !applyRules(cfg.rules, segments.join("/")).deny;
 }
 
 /** Validate options and resolve the root. Throws on any misconfiguration. */
@@ -206,6 +225,7 @@ export function compileStaticOptions(opts: StaticOptions): StaticConfig {
     exclude: stringArray(opts.exclude, "exclude").map(compileGlob),
     cache,
     windows,
+    allowCanonical: (segments) => passesFilePolicy(cfg, segments),
   };
 
   if (opts.fallback !== undefined) {
@@ -226,7 +246,14 @@ function compileFallback(cfg: StaticConfig, fallback: string): string[] {
   }
   try {
     const real = realpathSync(path.join(cfg.root, ...segments));
-    if (isWithin(cfg.root, real) && statSync(real).isFile()) return segments;
+    const canonical = path.relative(cfg.root, real).split(path.sep);
+    if (
+      isWithin(cfg.root, real) &&
+      passesFilePolicy(cfg, canonical) &&
+      statSync(real).isFile()
+    ) {
+      return segments;
+    }
   } catch {
     // fall through
   }

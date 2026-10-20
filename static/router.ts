@@ -185,7 +185,12 @@ async function lookup(
   segments: string[],
   trailingSlash: boolean,
 ): Promise<Lookup> {
-  const target = await locate(cfg.root, segments, cfg.symlinks);
+  const target = await locate(
+    cfg.root,
+    segments,
+    cfg.symlinks,
+    cfg.allowCanonical,
+  );
 
   if (target?.stat.isDirectory()) {
     if (cfg.index.length === 0) return { kind: "missing" };
@@ -218,7 +223,12 @@ async function findFile(
   segments: string[],
 ): Promise<Lookup | null> {
   if (!isServable(cfg, segments)) return null;
-  const located = await locate(cfg.root, segments, cfg.symlinks);
+  const located = await locate(
+    cfg.root,
+    segments,
+    cfg.symlinks,
+    cfg.allowCanonical,
+  );
   if (!located?.stat.isFile()) return null;
   return withVariants(cfg, segments, located.abs);
 }
@@ -236,6 +246,7 @@ async function withVariants(
       cfg.root,
       [...segments.slice(0, -1), last + suffix],
       cfg.symlinks,
+      cfg.allowCanonical,
     );
     if (sibling?.stat.isFile()) variants[enc] = sibling.abs;
   }

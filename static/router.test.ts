@@ -85,6 +85,8 @@ describe("attack corpus", () => {
     "/static/%2e%2e/public-secrets/key.txt",
     "/static/link-out",
     "/static/link-dir-out/key.txt",
+    "/static/env-alias",
+    "/static/git-alias/config",
     "/static/dangling",
     "/static/hello.txt%00.png",
     "/static/%00",
@@ -156,6 +158,19 @@ describe("dotfiles and symlink options", () => {
     expect(await (await assets("/static/link-dir-in/guide.txt")).text()).toBe(
       "guide",
     );
+  });
+
+  it("applies dotfile rules to the target of an in-root alias", async () => {
+    for (const symlinks of ["within-root", "follow"] as const) {
+      const get = mount("/s", staticFiles({ root: fx.root, symlinks }));
+      expect((await get("/s/env-alias")).status).toBe(404);
+      expect((await get("/s/git-alias/config")).status).toBe(404);
+    }
+    const allowed = mount(
+      "/s",
+      staticFiles({ root: fx.root, dotfiles: "allow" }),
+    );
+    expect((await allowed("/s/env-alias")).status).toBe(200);
   });
 
   it('refuses all symlinks with symlinks: "deny"', async () => {
@@ -271,6 +286,11 @@ describe("rules and exclude", () => {
     expect(app.headers.get("x-base")).toBe("1");
     const css = await get("/s/style.css");
     expect(css.headers.get("cache-control")).toBe("public, max-age=60");
+  });
+
+  it("denies files reached through an in-root alias", async () => {
+    expect((await get("/s/map-alias.txt")).status).toBe(404);
+    expect((await get("/s/key-alias.txt")).status).toBe(404);
   });
 
   it("denies case-insensitively", async () => {
