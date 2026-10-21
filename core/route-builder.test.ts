@@ -1,5 +1,6 @@
 import { expect, expectTypeOf, test } from "bun:test";
 import * as v from "valibot";
+import { ForbiddenError, NotFoundError, ValidationError } from "./error.ts";
 import {
   createRouteBuilder,
   FinishedRoute,
@@ -107,6 +108,21 @@ test("RouteBuilder — output() sets output schema", () => {
     .handle(() => new Response());
 
   expect(router.routes[0].outputSchema).toEqual(schema);
+});
+
+test("RouteBuilder — output() accepts the built-in HTTP error classes", () => {
+  const router = stubRouter();
+  const schema = {} as AnySchema;
+
+  createRouteBuilder(router, "GET", "/items")
+    .output(schema, [ForbiddenError, NotFoundError, ValidationError])
+    .handle(() => new Response());
+
+  expect(router.routes[0].errorTypes).toEqual([
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+  ]);
 });
 
 test("RouteBuilder — intercept() adds interceptor pair", () => {

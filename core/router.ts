@@ -14,6 +14,7 @@ import {
 } from "./route-builder.ts";
 import type {
   BasePathParams,
+  BuildEnv,
   DIContainer,
   ErrorHandlerFn,
   HttpMethod,
@@ -22,6 +23,11 @@ import type {
   NotFoundHandler,
   RouteDefinition,
 } from "./types.ts";
+import {
+  completeUpgrade,
+  createWebSocketRuntime,
+  type WsServerOptions,
+} from "./upgrade.ts";
 
 const stubContainer: DIContainer = {
   get() {
@@ -83,6 +89,12 @@ export class Router<
   #errorHandler?: ErrorHandlerFn;
   #notFoundHandler?: NotFoundHandler;
   #cors: CompiledCors | null = null;
+  #corsOptions: CorsOptions | null = null;
+  #env: Omit<BuildEnv, "cors"> = {
+    development: false,
+    logger: console,
+    websocket: {},
+  };
   #built = false;
   #matcher: Matcher | null = null;
   #container: DIContainer = stubContainer;
@@ -293,6 +305,7 @@ export class Router<
 
   cors(options: CorsOptions): this {
     this.#cors = buildCors(options);
+    this.#corsOptions = options;
     return this;
   }
 
@@ -315,6 +328,11 @@ export class Router<
     this.#container = container;
   }
 
+  /** @internal Set by serve() before build(); forwarded to route `onBuild` hooks. */
+  _setEnv(env: Partial<Omit<BuildEnv, "cors">>): void {
+    this.#env = { ...this.#env, ...env };
+  }
+
   // ── Build ────────────────────────────────────────────────────────────
 
   build(): void {
@@ -323,7 +341,9 @@ export class Router<
     const matcher = new Matcher();
     const allRoutes = this.#collectRoutes();
 
+    const env: BuildEnv = { ...this.#env, cors: this.#corsOptions };
     for (const route of allRoutes) {
+      route.onBuild?.(env);
       matcher.add(route.method, route.path, route);
     }
 
@@ -339,7 +359,17 @@ export class Router<
    * Entry point for request handling — available after build().
    * Use directly for testing without binding a port.
    */
-  readonly fetch = async (req: Request): Promise<Response> => {
+  readonly fetch = (req: Request): Promise<Response> => this.#handle(req, true);
+
+  /**
+   * @internal Used by serve(): HEAD responses keep their body so Bun can
+   * derive `Content-Length` from it before dropping it (it does not drain
+   * streams to do so).
+   */
+  readonly _serverFetch = (req: Request): Promise<Response> =>
+    this.#handle(req, false);
+
+  async #handle(req: Request, stripHeadBody: boolean): Promise<Response> {
     if (!this.#built || !this.#matcher) {
       throw new Error("Router not built. Call .build() first.");
     }
@@ -402,8 +432,9 @@ export class Router<
       response = this.#cors.applyTo(req, response);
     }
 
-    // HEAD: strip body
-    if (isHead) {
+    // HEAD: strip body. Cancel it so a stream (e.g. SSE) is not left open.
+    if (isHead && stripHeadBody) {
+      response.body?.cancel().catch(() => {});
       return new Response(null, {
         status: response.status,
         headers: response.headers,
@@ -411,7 +442,7 @@ export class Router<
     }
 
     return response;
-  };
+  }
 
   // ── Internal ─────────────────────────────────────────────────────────
 
@@ -495,6 +526,8 @@ export interface ServeOptions {
    * (disabled) so long-lived SSE streams are not cut between keepalives.
    */
   idleTimeout?: number;
+  /** Server-wide WebSocket settings (secure defaults; see {@link WsServerOptions}). */
+  websocket?: WsServerOptions;
   onListen?: (addr: { hostname: string; port: number }) => void;
 }
 
@@ -502,7 +535,10 @@ export interface ServeOptions {
 export interface HttpServer {
   readonly hostname: string;
   readonly port: number;
-  /** Stop accepting connections; `force` also closes in-flight ones. */
+  /**
+   * Stop accepting connections; `force` also closes in-flight ones. Open
+   * WebSockets are always closed with `1001 Going Away` first.
+   */
   stop(force?: boolean): Promise<void>;
 }
 
@@ -520,13 +556,21 @@ export function serve(
   if (options?.container) {
     app._setContainer(options.container);
   }
+  app._setEnv({
+    development: options?.development ?? false,
+    logger: options?.logger ?? console,
+    websocket: options?.websocket ?? {},
+  });
   app.build(); // idempotent
+  const sockets = createWebSocketRuntime(options?.websocket, options?.logger);
   const server = Bun.serve({
     port: options?.port ?? 8000,
     hostname: options?.hostname ?? "0.0.0.0",
     development: options?.development ?? false,
     idleTimeout: options?.idleTimeout ?? 0,
-    fetch: (req) => app.fetch(req),
+    fetch: async (req, server) =>
+      completeUpgrade(req, await app._serverFetch(req), server),
+    websocket: sockets.websocket,
     // Errors outside the router's error chain (e.g. a `Bun.file` body that
     // fails to open while the response is sent) would otherwise reach Bun's
     // default error page, which exposes messages and paths in development.
@@ -538,7 +582,10 @@ export function serve(
   const handle: HttpServer = {
     hostname: server.hostname ?? options?.hostname ?? "0.0.0.0",
     port: server.port ?? options?.port ?? 8000,
-    stop: (force) => server.stop(force),
+    stop: (force) => {
+      sockets.closeAll();
+      return server.stop(force);
+    },
   };
   options?.signal?.addEventListener("abort", () => void handle.stop(), {
     once: true,

@@ -1,7 +1,15 @@
 /** Keyed registry of live connections — the seam for targeted (non-broadcast) sends. */
 
+import {
+  createTransportBridge,
+  type TransportBridge,
+} from "../core/transport.ts";
 import type { SseConnection } from "./connection.ts";
-import type { SseEventOptions, SseHubOptions, SseTransport } from "./types.ts";
+import type {
+  SseEventOptions,
+  SseHubOptions,
+  SseTransportMessage,
+} from "./types.ts";
 
 /**
  * Connections keyed by an application identifier (user id, tenant id, document
@@ -14,20 +22,19 @@ import type { SseEventOptions, SseHubOptions, SseTransport } from "./types.ts";
  */
 export class SseHub {
   readonly #byKey = new Map<string, Set<SseConnection>>();
-  readonly #nodeId: string = crypto.randomUUID();
-  readonly #transport?: SseTransport;
-  #unsubscribe?: () => void;
+  readonly #bridge: TransportBridge<SseTransportMessage>;
 
   constructor(options: SseHubOptions = {}) {
-    this.#transport = options.transport;
-    this.#unsubscribe = options.transport?.subscribe((message) => {
-      if (message.origin === this.#nodeId) return;
-      this.#deliver(message.key, message.data, {
-        event: message.event,
-        id: message.id,
-        retry: message.retry,
-      });
-    });
+    this.#bridge = createTransportBridge(
+      options.transport,
+      (message) =>
+        this.#deliver(message.key, message.data, {
+          event: message.event,
+          id: message.id,
+          retry: message.retry,
+        }),
+      { label: "[fishenv.sse]" },
+    );
   }
 
   /** Register a connection. Returns an unregister fn; also auto-removes on close. */
@@ -88,8 +95,7 @@ export class SseHub {
       for (const connection of [...set]) connection.close();
     }
     this.#byKey.clear();
-    this.#unsubscribe?.();
-    this.#unsubscribe = undefined;
+    this.#bridge.close();
   }
 
   has(key: string): boolean {
@@ -126,23 +132,12 @@ export class SseHub {
   }
 
   #publish(key: string | null, data: unknown, opts?: SseEventOptions): void {
-    if (this.#transport == null) return;
-    try {
-      const result = this.#transport.publish({
-        key,
-        data,
-        event: opts?.event,
-        id: opts?.id,
-        retry: opts?.retry,
-        origin: this.#nodeId,
-      });
-      if (result instanceof Promise) {
-        result.catch((err) =>
-          console.error("[fishenv.sse] transport publish failed:", err),
-        );
-      }
-    } catch (err) {
-      console.error("[fishenv.sse] transport publish failed:", err);
-    }
+    this.#bridge.publish({
+      key,
+      data,
+      event: opts?.event,
+      id: opts?.id,
+      retry: opts?.retry,
+    });
   }
 }

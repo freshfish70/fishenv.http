@@ -9,6 +9,7 @@ export {
 export type {
   AnySchema,
   BasePathParams,
+  ErrorTypes,
   ExtractParams,
   HttpMethod,
   InferBody,
@@ -22,3 +23,19 @@ export type {
   RouteMeta,
   ValibotSchema,
 } from "./types.ts";
+
+export type {
+  AnyChannelContract,
+  AnyWsContract,
+  ChannelContractDefinition,
+  ChannelEventDefinition,
+  EventSchemas,
+  InferChannel,
+  InferSocket,
+  JoinSchemas,
+  SchemaInput,
+  SchemaOutput,
+  WsContractDefinition,
+  WsContractKind,
+} from "./ws.ts";
+export { CHANNELS_PROTOCOL, ChannelContract, WsContract } from "./ws.ts";

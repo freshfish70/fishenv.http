@@ -92,15 +92,17 @@ export type InferCookies<O extends InputOptions<InputKind>> =
 // Path Param Extraction
 // ---------------------------------------------------------------------------
 
+type ParamName<Param extends string> = Param extends `${infer Name}?`
+  ? Name
+  : Param extends `${infer Name}*`
+    ? Name
+    : Param;
+
 export type ExtractParams<P extends string> =
   P extends `${string}:${infer Param}/${infer Rest}`
-    ?
-        | (Param extends `${infer Name}?` ? Name : Param)
-        | ExtractParams<`/${Rest}`>
+    ? ParamName<Param> | ExtractParams<`/${Rest}`>
     : P extends `${string}:${infer Param}`
-      ? Param extends `${infer Name}?`
-        ? Name
-        : Param
+      ? ParamName<Param>
       : never;
 
 export type BasePathParams<P extends string> = {
@@ -124,3 +126,11 @@ export interface RouteMeta {
   deprecated?: boolean;
   operationId?: string;
 }
+
+/**
+ * Error classes a handler may throw — documentation and client typing only
+ * (`.output(schema, errors)`, WebSocket replies). `any[]` so that classes with
+ * typed constructor params (`ForbiddenError(message?: string)`) fit.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: constructor params are contravariant
+export type ErrorTypes = (abstract new (...args: any[]) => Error)[];

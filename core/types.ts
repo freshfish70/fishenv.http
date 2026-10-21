@@ -24,6 +24,7 @@ export type {
 
 import type {
   AnySchema,
+  ErrorTypes,
   HttpMethod,
   InferBody,
   InferCookies,
@@ -33,6 +34,9 @@ import type {
   InputOptions,
   RouteMeta,
 } from "../contract/index.ts";
+import type { CorsOptions } from "./cors.ts";
+import type { Logger } from "./router.ts";
+import type { WsServerOptions } from "./upgrade.ts";
 
 export interface ResolvedInput<K extends InputKind, O extends InputOptions<K>> {
   kind: K;
@@ -124,7 +128,7 @@ export interface RouteDefinition {
   inputKind: InputKind;
   inputOptions: InputOptions<InputKind>;
   outputSchema?: AnySchema;
-  errorTypes?: (new (...args: unknown[]) => Error)[];
+  errorTypes?: ErrorTypes;
   meta?: RouteMeta;
   interceptors: InterceptorPair<Record<string, unknown>>[];
   handler: HandlerFn<
@@ -137,7 +141,25 @@ export interface RouteDefinition {
   errorHandler?: ErrorHandlerFn;
   /** onError handlers of mounted routers, innermost first. Set at build(). */
   routerErrorHandlers?: ErrorHandlerFn[];
+  /**
+   * Run before *any* middleware (router-level included); throw to reject.
+   * Errors go through the normal error chain.
+   */
+  guards?: RouteGuardFn[];
+  /** Called once per route at `build()` with root-level configuration. */
+  onBuild?: (env: BuildEnv) => void;
   kind: "http" | "ws" | "sse";
+}
+
+export type RouteGuardFn = (req: Request) => void | Promise<void>;
+
+/** Root-level configuration handed to {@link RouteDefinition.onBuild}. */
+export interface BuildEnv {
+  /** The root router's `cors()` options, if configured. */
+  cors: CorsOptions | null;
+  development: boolean;
+  logger: Logger;
+  websocket: WsServerOptions;
 }
 
 // ---------------------------------------------------------------------------

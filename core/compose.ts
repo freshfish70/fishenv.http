@@ -78,6 +78,11 @@ export async function dispatch(
   errorHandlers: ErrorHandlerFn[],
 ): Promise<Response> {
   try {
+    // 0. Guards run before any middleware
+    if (definition.guards) {
+      for (const guard of definition.guards) await guard(req);
+    }
+
     // 1. Build context via middleware chain
     const ctx = await runMiddlewarePipeline(
       req,

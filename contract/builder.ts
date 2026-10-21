@@ -1,6 +1,7 @@
 import type {
   AnySchema,
   BasePathParams,
+  ErrorTypes,
   HttpMethod,
   InferOutput,
   InputKind,
@@ -8,6 +9,7 @@ import type {
   MergeParam,
   RouteMeta,
 } from "./types.ts";
+import { wsContractFactories } from "./ws.ts";
 
 /**
  * Plain-data snapshot of a contract endpoint.
@@ -24,7 +26,7 @@ export interface ContractDefinition {
   inputKind: InputKind;
   inputOptions: InputOptions<InputKind>;
   outputSchema?: AnySchema;
-  errorTypes?: (new (...args: unknown[]) => Error)[];
+  errorTypes?: ErrorTypes;
   meta?: RouteMeta;
 }
 
@@ -51,9 +53,7 @@ export class ContractBuilder<
   #inputKind: InputKind;
   #inputOptions: InputOptions<InputKind>;
   #outputSchema?: AnySchema;
-  #errorTypes?: (new (
-    ...args: unknown[]
-  ) => Error)[];
+  #errorTypes?: ErrorTypes;
   #meta?: RouteMeta;
 
   constructor(
@@ -63,7 +63,7 @@ export class ContractBuilder<
     inputKind: InputKind = "none",
     inputOptions: InputOptions<InputKind> = {},
     outputSchema?: AnySchema,
-    errorTypes?: (new (...args: unknown[]) => Error)[],
+    errorTypes?: ErrorTypes,
     meta?: RouteMeta,
   ) {
     this.method = method;
@@ -143,7 +143,7 @@ export class ContractBuilder<
   /** Set output schema + optional error types — returns new builder */
   output<S extends AnySchema>(
     schema: S,
-    errors?: (new (...args: unknown[]) => Error)[],
+    errors?: ErrorTypes,
   ): ContractBuilder<M, P, K, O, Params, InferOutput<S>> {
     return new ContractBuilder(
       this.method,
@@ -229,6 +229,7 @@ function endpoint<M extends HttpMethod>(method: M) {
  * ```
  */
 export const c = {
+  ...wsContractFactories,
   get: endpoint("GET"),
   post: endpoint("POST"),
   put: endpoint("PUT"),

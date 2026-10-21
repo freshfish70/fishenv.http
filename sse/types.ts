@@ -3,6 +3,8 @@
  * module in this package can import from here without a cycle.
  */
 
+import type { Transport, TransportEnvelope } from "../core/transport.ts";
+
 export interface SseEventOptions {
   /** `event:` field — the client-side listener name. Defaults to `message`. */
   event?: string;
@@ -30,7 +32,7 @@ export interface SseConnectionOptions {
 }
 
 /** Cross-process fan-out envelope. Must be JSON-serializable. */
-export interface SseTransportMessage {
+export interface SseTransportMessage extends TransportEnvelope {
   /** `null` means broadcast to every connection. */
   key: string | null;
   data: unknown;
@@ -42,10 +44,7 @@ export interface SseTransportMessage {
 }
 
 /** Seam for multi-instance deployments (Redis pub/sub, NATS, Postgres LISTEN…). */
-export interface SseTransport {
-  publish(message: SseTransportMessage): void | Promise<void>;
-  subscribe(onMessage: (message: SseTransportMessage) => void): () => void;
-}
+export type SseTransport = Transport<SseTransportMessage>;
 
 export interface SseHubOptions {
   transport?: SseTransport;

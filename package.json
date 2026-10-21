@@ -17,9 +17,17 @@
       "types": "./dist/sse/index.d.ts",
       "default": "./dist/sse/index.js"
     },
+    "./ws": {
+      "types": "./dist/ws/index.d.ts",
+      "default": "./dist/ws/index.js"
+    },
     "./contract": {
       "types": "./dist/contract/index.d.ts",
       "default": "./dist/contract/index.js"
+    },
+    "./static": {
+      "types": "./dist/static/index.d.ts",
+      "default": "./dist/static/index.js"
     }
   },
   "publishConfig": {

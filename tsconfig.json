@@ -16,8 +16,10 @@
     "paths": {
       "@fishenv/http": ["./core/index.ts"],
       "@fishenv/http/sse": ["./sse/index.ts"],
-      "@fishenv/http/contract": ["./contract/index.ts"]
+      "@fishenv/http/contract": ["./contract/index.ts"],
+      "@fishenv/http/static": ["./static/index.ts"],
+      "@fishenv/http/ws": ["./ws/index.ts"]
     }
   },
-  "include": ["core", "sse", "contract", "examples"]
+  "include": ["core", "sse", "ws", "contract", "static", "examples"]
 }

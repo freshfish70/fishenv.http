@@ -10,7 +10,7 @@ export {
 export type { CompiledCors, CorsOptions } from "./cors.ts";
 // CORS
 export { buildCors } from "./cors.ts";
-export type { ValidationField } from "./error.ts";
+export type { HttpErrorJSON, ValidationField } from "./error.ts";
 // Errors
 export {
   BadRequestError,
@@ -18,6 +18,7 @@ export {
   defaultErrorHandler,
   defaultMethodNotAllowedHandler,
   defaultNotFoundHandler,
+  errorCodeForStatus,
   ForbiddenError,
   HttpError,
   InternalServerError,
@@ -52,10 +53,19 @@ export type { CtxOf, HttpServer, Logger, ServeOptions } from "./router.ts";
 // Router
 export { Router, r, router, serve } from "./router.ts";
 export type {
+  Transport,
+  TransportBridge,
+  TransportEnvelope,
+  WithoutOrigin,
+} from "./transport.ts";
+// Transport (shared by SSE and WS hubs)
+export { createMemoryTransport, createTransportBridge } from "./transport.ts";
+export type {
   AfterInterceptorFn,
   AnySchema,
   BasePathParams,
   BeforeInterceptorFn,
+  BuildEnv,
   DIContainer,
   ErrorHandlerFn,
   ExtractParams,
@@ -77,9 +87,29 @@ export type {
   NotFoundHandler,
   ResolvedInput,
   RouteDefinition,
+  RouteGuardFn,
   RouteMeta,
   ValibotSchema,
 } from "./types.ts";
+export type {
+  SocketData,
+  SocketHandlers,
+  UpgradedSocket,
+  UpgradeIntent,
+  WebSocketRuntime,
+  WsServerOptions,
+} from "./upgrade.ts";
+// WebSocket upgrade plumbing
+export {
+  CLOSE_GOING_AWAY,
+  CLOSE_INTERNAL_ERROR,
+  completeUpgrade,
+  createWebSocketRuntime,
+  DEFAULT_BACKPRESSURE_LIMIT,
+  DEFAULT_MAX_PAYLOAD_LENGTH,
+  requestUpgrade,
+  takeUpgrade,
+} from "./upgrade.ts";
 // URL utilities
 export { buildRouteRegex, extractParamNames, mergePaths } from "./utils/url.ts";
 // Validation

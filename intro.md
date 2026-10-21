@@ -196,22 +196,77 @@ your application.
 
 # Websockets
 
-`fishenv.http` also includes support for WebSockets, allowing you to build
-real-time applications and APIs that can maintain persistent connections with
-clients. You can define WebSocket routes and handlers using a similar API to
-regular HTTP routes, and manage WebSocket connections and messages in a
-straightforward way.
+`@fishenv/http/ws` gives you WebSocket endpoints without writing handshake,
+routing or security code yourself. A ws route is an ordinary `GET` route. The
+origin check, middleware (auth), path params and connection limits all run
+*before* the upgrade, so a rejected handshake is a normal HTTP error and no
+socket is ever opened.
 
 ```typescript
-route.ws("/ws").handle(({ ws, ctx }) => {
-  // This handler will be called when a client connects to the WebSocket endpoint at /ws
-  ws.on("message", (message) => {
-    // Handle incoming WebSocket messages from the client
-    console.log("Received message:", message);
-    ws.send("Hello from the server!"); // Send a message back to the client
+import { r, serve } from "@fishenv/http";
+import { withWs } from "@fishenv/http/ws";
+
+const api = withWs(r({ prefix: "/api" }).use(auth));
+
+api.ws("/echo/:room")
+  .maxMessageSize(16 * 1024)
+  .rateLimit({ messages: 20, perMs: 1000 })
+  .handle(({ socket, path, ctx }) => {
+    socket.onMessage((msg) => socket.send(`[${path.room}] ${msg.text()}`));
+    return () => console.log(`${ctx.user.id} left`); // cleanup on close
   });
-});
 ```
+
+It is layered, and each layer only uses the public API of the one below. Use
+as much as you need:
+
+- **Raw sockets**: `.handle()` with a `WsConnection` (`send`, `sendJson`,
+  `onMessage`, `onClose`, `expireAt`).
+- **Hubs and rooms**: `class LiveSockets extends WsHub {}` is a DI token.
+  `.subscribe(LiveSockets, ({ ctx }) => ctx.user.id)` registers sockets by
+  user, so any service can `send(userId, …)`, `to("team:7").except(socket)`,
+  or `close(userId)` on logout. Rooms use Bun's native pub/sub, and a shared
+  `Transport` (Redis, NATS, …) fans out across instances.
+- **Channels**: an opt-in protocol (`fishenv.channels.v1`). Clients join
+  named channels over one socket. Every join passes an authorizer, payloads
+  are validated, replies acknowledge events, and presence shows who is in
+  each channel. Channels can be defined inline, or as contracts shared with
+  clients:
+
+```typescript
+// contract.ts — shared with the frontend
+export const room = c.channel("rooms/:roomId")
+  .join(JoinPayload, JoinReply, [ForbiddenError])
+  .clientEvent("message", MessageIn, MessageAck)
+  .serverEvent("message", Message)
+  .presence(PresenceMeta, { clientUpdates: true });
+export const chat = c.ws("/chat").channels(room);
+
+// server — a missing handler or channel is a compile error
+api.ws(chat).with(ChatTickets.middleware()).channels((channel) => [
+  channel(room)
+    .join(({ ctx, path }) => ({ history: load(path.roomId) }))
+    .presence(({ ctx }) => ({ key: ctx.ticket.userId, meta: { status: "online" } }))
+    .on("message", ({ data, channel }) => {
+      channel.broadcast("message", save(data));
+      return { id };
+    }),
+]);
+```
+
+Secure by default:
+
+- **Origins:** cross-origin browser handshakes are refused. The allow-list is
+  inherited from the root `cors()` (never `"*"`) and can be extended per
+  router and per route.
+- **Server-wide limits:** frames are capped at 64 KiB, send buffers at 1 MiB
+  (slow consumers are dropped), and compression is off.
+- **Errors:** they close the socket with `4000 + status`, and their details
+  are hidden outside development.
+- **Browser auth:** browsers can't set headers on a handshake, so `WsTickets`
+  issues short-lived, single-use tickets instead of putting tokens in URLs.
+
+See `examples/websocket/`.
 
 # SSE (Server-Sent Events)
 
@@ -267,19 +322,44 @@ route.stream("/stream").handle(({ res, ctx }) => {
 
 # Static File Serving
 
-`fishenv.http` also includes support for serving static files, allowing you to
-easily serve HTML, CSS, JavaScript, images, and other static assets from your
-application. You can define a static file route that serves files from a
-specified directory, and configure options such as caching and directory
-listing.
+`@fishenv/http/static` serves a directory without you writing any path
+handling, traversal checks, MIME detection or caching code. `staticFiles()`
+returns an ordinary router, so it is mounted, prefixed and wrapped in
+middleware like any other:
 
 ```typescript
-route.static("/static", {
-  directory: "./public", // The directory from which to serve static files
-  cacheControl: "max-age=3600", // Cache control header for static files
-  directoryListing: false, // Whether to enable directory listing for the static file route
-});
+import { r, serve } from "@fishenv/http";
+import { serveFile, spa, staticFiles } from "@fishenv/http/static";
+
+const app = r()
+  .add("/assets", staticFiles({
+    root: "./public",
+    precompressed: ["br", "gzip"], // serve app.js.br / app.js.gz when accepted
+    rules: [
+      { match: "**/*.{js,css}", cacheControl: "public, max-age=31536000, immutable" },
+      { match: "**/*.map", deny: true },
+    ],
+  }));
+
+// Single-page app at the root: real files, else index.html for client routes.
+// `exclude` keeps unknown API paths on a real 404 instead of the HTML shell.
+app.add(spa({ root: "./dist", exclude: ["api/**"] }));
+
+// One known file from a handler
+app.get("/report").handle(({ req }) => serveFile(req, "/var/reports/latest.pdf"));
+
+serve(app);
 ```
+
+Safe by default: paths are decoded and validated per segment, confined to the
+real root (symlinks included), dotfiles are hidden, only regular files are
+served, and every rejection is a plain 404 through your `onError` chain.
+Responses get `X-Content-Type-Options: nosniff`, `Cache-Control: no-cache`
+(override per rule), weak ETags and `Last-Modified`; single-range requests
+are handled by Bun. For directories holding user uploads, set
+`untrusted: true` (CSP sandbox, downloads for active content, no symlinks).
+Unknown options throw at startup, so a typo never silently falls back to a
+default.
 
 # Async Local Storage
 

@@ -23,7 +23,9 @@ export interface RouterMatcher {
 function specificity(path: string): number {
   return path.split("/").reduce((score, seg) => {
     if (!seg) return score;
-    if (seg === "**") return score + 0;
+    if (seg === "**" || (seg.startsWith(":") && seg.endsWith("*"))) {
+      return score + 0;
+    }
     if (seg.includes("*") || seg.includes("{")) return score + 1;
     if (seg.startsWith(":")) return score + 2;
     return score + 3;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { ForbiddenError } from "./error.ts";
 import { type CtxOf, Router, r, serve } from "./router.ts";
 import type { MiddlewareFn } from "./types.ts";
 
@@ -96,6 +97,22 @@ describe("Router routing", () => {
 
 // ── 404 / 405 ──────────────────────────────────────────────────────────
 
+describe("Router rest params", () => {
+  it("passes the raw remainder of a mounted router to the handler", async () => {
+    const files = r();
+    files.get("/:path*").handle(({ path }) => Response.json(path));
+    const app = r().add("/static", files);
+    app.get("/static/health").handle(() => new Response("ok"));
+    app.build();
+
+    expect(await (await app.fetch(req("/static/a/b%20c.txt"))).json()).toEqual({
+      path: "a/b%20c.txt",
+    });
+    expect(await (await app.fetch(req("/static"))).json()).toEqual({});
+    expect(await (await app.fetch(req("/static/health"))).text()).toEqual("ok");
+  });
+});
+
 describe("Router 404 / 405", () => {
   it("returns 404 for unknown path", async () => {
     const app = r();
@@ -145,6 +162,76 @@ describe("Router HEAD fallback", () => {
     expect(res.status).toEqual(200);
     expect(res.headers.get("x-custom")).toEqual("yes");
     expect(await res.text()).toEqual(""); // body stripped
+  });
+
+  it("cancels a stripped streaming body", async () => {
+    let cancelled = false;
+    const app = r();
+    app.get("/stream").handle(
+      () =>
+        new Response(
+          new ReadableStream({
+            cancel() {
+              cancelled = true;
+            },
+          }),
+        ),
+    );
+    app.build();
+
+    await app.fetch(req("/stream", "HEAD"));
+    expect(cancelled).toBe(true);
+  });
+});
+
+describe("serve() HEAD", () => {
+  it("reports the GET Content-Length without sending a body", async () => {
+    const app = r();
+    app.get("/text").handle(() => new Response("payload"));
+    app.get("/file").handle(() => new Response(Bun.file(import.meta.path)));
+    const server = serve(app, { port: 0, hostname: "127.0.0.1" });
+    const base = `http://127.0.0.1:${server.port}`;
+    try {
+      for (const path of ["/text", "/file"]) {
+        const get = await fetch(base + path);
+        const head = await fetch(base + path, { method: "HEAD" });
+        const length = get.headers.get("content-length");
+        expect(Number(length)).toBeGreaterThan(0);
+        expect(head.headers.get("content-length")).toBe(length);
+        expect(await head.text()).toBe("");
+        await get.arrayBuffer();
+      }
+    } finally {
+      await server.stop(true);
+    }
+  });
+
+  it("does not drain an endless stream to answer HEAD", async () => {
+    let pulls = 0;
+    const app = r();
+    app.get("/endless").handle(
+      () =>
+        new Response(
+          new ReadableStream({
+            pull(controller) {
+              pulls++;
+              controller.enqueue(new TextEncoder().encode("x"));
+            },
+          }),
+        ),
+    );
+    const server = serve(app, { port: 0, hostname: "127.0.0.1" });
+    try {
+      const res = await fetch(`http://127.0.0.1:${server.port}/endless`, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(2_000),
+      });
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("");
+      expect(pulls).toBeLessThan(5);
+    } finally {
+      await server.stop(true);
+    }
   });
 });
 
@@ -579,5 +666,87 @@ describe("serve() error hook", () => {
     } finally {
       await server.stop(true);
     }
+  });
+});
+
+// ── Route guards & onBuild hooks (used by optional modules like ws) ────
+
+describe("route guards", () => {
+  it("run before router-level middleware and can reject", async () => {
+    const order: string[] = [];
+    const app = r().use(() => {
+      order.push("middleware");
+      return {};
+    });
+    const route = app.get("/g").handle(() => new Response("ok"));
+    route.definition.guards = [
+      (req) => {
+        order.push("guard");
+        if (req.headers.get("x-deny")) throw new ForbiddenError();
+      },
+    ];
+    app.build();
+
+    const ok = await app.fetch(req("/g"));
+    expect(ok.status).toEqual(200);
+    expect(order).toEqual(["guard", "middleware"]);
+
+    order.length = 0;
+    const denied = await app.fetch(
+      new Request(`${BASE}/g`, { headers: { "x-deny": "1" } }),
+    );
+    expect(denied.status).toEqual(403);
+    expect(order).toEqual(["guard"]);
+  });
+
+  it("still run first when the route lives on a mounted child", async () => {
+    const order: string[] = [];
+    const parent = r().use(() => {
+      order.push("parent-mw");
+      return {};
+    });
+    const child = r({ prefix: "/c" });
+    const route = child.get("/x").handle(() => new Response("ok"));
+    route.definition.guards = [() => void order.push("guard")];
+    parent.add(child);
+    parent.build();
+
+    await parent.fetch(req("/c/x"));
+    expect(order).toEqual(["guard", "parent-mw"]);
+  });
+});
+
+describe("onBuild hook", () => {
+  it("receives root cors options and serve env", () => {
+    const app = r().cors({ origin: ["https://a.test"] });
+    const child = r();
+    let env: unknown;
+    const route = child.get("/x").handle(() => new Response("ok"));
+    route.definition.onBuild = (e) => {
+      env = e;
+    };
+    app.add(child);
+    app._setEnv({ development: true, websocket: { idleTimeout: 5 } });
+    app.build();
+
+    expect(env).toMatchObject({
+      cors: { origin: ["https://a.test"] },
+      development: true,
+      websocket: { idleTimeout: 5 },
+    });
+  });
+
+  it("defaults to no cors, production, empty websocket options", () => {
+    const app = r();
+    let env: unknown;
+    app.get("/x").handle(() => new Response("ok")).definition.onBuild = (e) => {
+      env = e;
+    };
+    app.build();
+    expect(env).toMatchObject({
+      cors: null,
+      development: false,
+      websocket: {},
+    });
   });
 });

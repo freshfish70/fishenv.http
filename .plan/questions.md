@@ -240,11 +240,15 @@ to keep the core package lean for users who don't need WS support.
 **Q28 — Middleware on WS upgrade requests** Should router/route-level middleware
 execute before the WebSocket handshake (for auth etc.)? Almost certainly yes —
 confirming. A: Yes, middleware should run before the WebSocket handshake to
-allow for authentication and other pre-upgrade logic.
+allow for authentication and other pre-upgrade logic. **Implemented:** the origin check runs as a route guard *before* any
+middleware, then middleware, path params and connection limits, then the
+upgrade.
 
 **Q29 — Binary message types** Expose `MessageEvent` as-is (handles both string
 and binary), or wrap with a typed API? A: Expose `MessageEvent` as-is to support
-both string and binary messages without adding unnecessary abstraction.
+both string and binary messages without adding unnecessary abstraction. **Superseded (2026-10-19):** on Bun the server receives `string | Buffer`,
+not a `MessageEvent`. Messages are wrapped in a lazy `WsMessage` (`text()`,
+`bytes()`, `json()`, `isBinary`). See `10-websockets.md` §0.
 
 ---
 
