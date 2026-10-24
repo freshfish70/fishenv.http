@@ -230,8 +230,10 @@ as much as you need:
 - **Channels**: an opt-in protocol (`fishenv.channels.v1`). Clients join
   named channels over one socket. Every join passes an authorizer, payloads
   are validated, replies acknowledge events, and presence shows who is in
-  each channel. Channels can be defined inline, or as contracts shared with
-  clients:
+  each channel. A joining socket gets the join reply first, then every event
+  sent to the channel since its join handler started, so a snapshot returned
+  from `.join()` plus the live events leave no gap. Channels can be defined
+  inline, or as contracts shared with clients:
 
 ```typescript
 // contract.ts — shared with the frontend
