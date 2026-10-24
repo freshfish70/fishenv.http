@@ -5,6 +5,9 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "sideEffects": false,
+  "repository": {
+    "url": "https://github.com/freshfish70/fishenv.http"
+  },
   "files": [
     "dist"
   ],
