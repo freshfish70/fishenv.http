@@ -478,6 +478,109 @@ describe("leaving", () => {
   });
 });
 
+// ── Join ordering ─────────────────────────────────────────────────────
+
+describe("events sent while a join handler runs", () => {
+  it("are delivered after the join reply, in order; other members get them at once", async () => {
+    const hub = new ChatHub();
+    const feed = channel("feed").join(async ({ channel }) => {
+      channel.broadcast("before", 1);
+      channel.push("pushed", 2);
+      await Bun.sleep(20);
+      hub.channel("feed").send("during", 3);
+      return "snapshot";
+    });
+    const { client } = start([feed], { hub });
+    const bob = await client("bob");
+    await bob.join("feed");
+    const alice = await client("alice");
+    alice.send({ t: "join", ref: 1, ch: "feed" });
+
+    expect((await bob.nextEvent("feed", "before")).d).toEqual(1);
+    await waitFor(() => alice.unread.length === 4, "alice's frames");
+    expect(alice.unread.map((f) => f.ev ?? f.d)).toEqual([
+      "snapshot",
+      "before",
+      "pushed",
+      "during",
+    ]);
+    await alice.close();
+    await bob.close();
+  });
+
+  it("are dropped when the join fails, and the socket is no member", async () => {
+    const hub = new ChatHub();
+    const feed = channel("feed").join(async ({ channel }) => {
+      channel.broadcast("before", 1);
+      await Bun.sleep(10);
+      throw new ForbiddenError("No");
+    });
+    const { client } = start([feed], { hub });
+    const c = await client();
+    expect((await c.join("feed")).err.code).toEqual("forbidden");
+    hub.channel("feed").send("after", 2);
+    await Bun.sleep(20);
+    expect(c.unread).toEqual([]);
+    expect(hub.channel("feed").count()).toEqual(0);
+    await c.close();
+  });
+
+  it("past maxJoinBufferedFrames fail the join with 503 join_overflow", async () => {
+    const hub = new ChatHub();
+    const feed = channel("feed").join(async ({ channel }) => {
+      for (let i = 0; i < 3; i++) channel.broadcast("n", i);
+      return "snapshot";
+    });
+    const { client } = start([feed], { hub, maxJoinBufferedFrames: 2 });
+    const c = await client();
+    expect((await c.join("feed")).err).toMatchObject({
+      status: 503,
+      code: "join_overflow",
+    });
+    await Bun.sleep(20);
+    expect(c.unread).toEqual([]);
+    expect(hub.channel("feed").count()).toEqual(0);
+    await c.close();
+  });
+
+  it("a kick during the join aborts it with 409 join_aborted", async () => {
+    const hub = new ChatHub();
+    const feed = channel("feed").join(async () => {
+      hub.channel("feed").kick("go away");
+      await Bun.sleep(10);
+      return "snapshot";
+    });
+    const { client } = start([feed], { hub });
+    const c = await client();
+    expect((await c.join("feed")).err).toMatchObject({
+      status: 409,
+      code: "join_aborted",
+    });
+    expect(hub.channel("feed").count()).toEqual(0);
+    await c.close();
+  });
+
+  it("a socket closing during the join leaves no membership behind", async () => {
+    const hub = new ChatHub();
+    let entered = false;
+    const feed = channel("feed").join(async () => {
+      entered = true;
+      await Bun.sleep(30);
+      return "snapshot";
+    });
+    const { client, logger } = start([feed], { hub });
+    const c = await client();
+    c.send({ t: "join", ref: 1, ch: "feed" });
+    await waitFor(() => entered, "join handler");
+    expect(hub.channel("feed").count()).toEqual(1);
+    await c.close();
+    await waitFor(() => hub.channel("feed").count() === 0, "membership gone");
+    await Bun.sleep(40);
+    expect(hub.channel("feed").count()).toEqual(0);
+    expect(logger.errors).toEqual([]);
+  });
+});
+
 // ── Server-side access via the hub ────────────────────────────────────
 
 describe("hub.channel(name)", () => {

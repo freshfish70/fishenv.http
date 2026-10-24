@@ -7,6 +7,12 @@
  *   leave order holds); different sockets run concurrently
  * - nothing reaches a handler before the channel is joined and the payload
  *   validated against the contract
+ * - a joining socket is a room member from the moment its join handler
+ *   starts: channel events sent meanwhile (broadcasts, `push`) are queued and
+ *   delivered right after the join reply, so a snapshot returned by the
+ *   handler plus the events that follow never leave a gap. Events sent while
+ *   the handler runs may also be in its snapshot; dedupe on the client (a
+ *   sequence number in the payload) if that matters
  * - repeated protocol violations close the socket with `1008`
  */
 
@@ -56,6 +62,11 @@ export interface ChannelsOptions {
   /** Frames queued behind a slow handler before closing with `1013`. Default 64. */
   maxPendingFrames?: number;
   /**
+   * Channel events queued for a socket while its join handler runs. Default
+   * 1024. Exceeding it fails the join with `503 join_overflow`.
+   */
+  maxJoinBufferedFrames?: number;
+  /**
    * Hub that backs channel membership — pass an instance or a DI token to
    * reach channels from server code via `hub.channel(name)`. A private hub is
    * used otherwise.
@@ -68,6 +79,7 @@ const DEFAULTS = {
   maxChannelsPerSocket: 32,
   maxViolations: 10,
   maxPendingFrames: 64,
+  maxJoinBufferedFrames: 1024,
 };
 
 /** Errors for rejected frames, mapped onto the HTTP error vocabulary. */
@@ -316,40 +328,68 @@ class ChannelSession {
 
     const context = this.#context(def, frame.ch);
     const args = { ...this.#base(path), data, channel: context };
-    const reply = def.join ? await def.join(args) : undefined;
-    checkOutbound(
-      contract.join.reply,
-      reply,
-      this.#env.development,
-      `join reply of "${frame.ch}"`,
-    );
-
-    // Resolve presence before committing, so a failing tracker aborts the join.
+    const room = channelRoom(frame.ch);
     const presence = contract.presence;
-    const tracked =
-      presence != null && def.presence != null
-        ? ((await def.presence(args)) as
-            | { key: string; meta: unknown }
-            | null
-            | undefined)
-        : null;
-    if (tracked != null) {
+
+    // Member (held) before the handler runs, so nothing sent meanwhile is lost.
+    const held = this.#hub._hold(
+      this.#socket,
+      room,
+      this.#opts.maxJoinBufferedFrames,
+    );
+    let reply: unknown;
+    let tracked = null as { key: string; meta: unknown } | null | undefined;
+    try {
+      reply = def.join ? await def.join(args) : undefined;
       checkOutbound(
-        presence?.meta,
-        tracked.meta,
+        contract.join.reply,
+        reply,
         this.#env.development,
-        `presence meta of "${frame.ch}"`,
+        `join reply of "${frame.ch}"`,
       );
+
+      // Resolve presence before committing, so a failing tracker aborts the join.
+      if (presence != null && def.presence != null) {
+        tracked = (await def.presence(args)) as typeof tracked;
+      }
+      if (tracked != null) {
+        checkOutbound(
+          presence?.meta,
+          tracked.meta,
+          this.#env.development,
+          `presence meta of "${frame.ch}"`,
+        );
+      }
+    } catch (err) {
+      if (held) this.#hub.leave(this.#socket, room);
+      throw err;
     }
 
     if (this.#socket.closed) return;
-    const room = channelRoom(frame.ch);
-    this.#hub.join(this.#socket, room);
+    // Not held: the app already put the socket in the room through the hub.
+    const queued = held ? this.#hub._release(this.#socket, room) : [];
+    if (queued === null) {
+      throw new ChannelError(
+        409,
+        "join_aborted",
+        "Removed from the channel while joining",
+        false,
+      );
+    }
+    if (queued === "overflow") {
+      throw new ChannelError(
+        503,
+        "join_overflow",
+        "Too many channel events while joining",
+        false,
+      );
+    }
     this.#hub._onLeave(this.#socket, room, (reason) =>
       this.#schedule(() => this.#serverLeave(frame.ch, "kicked", reason)),
     );
     this.#joined.set(frame.ch, { impl: def, name: frame.ch, path, context });
     this.#reply(frame.ref, reply);
+    for (const queuedFrame of queued) this.#socket.send(queuedFrame);
 
     if (presence != null) {
       const registry = presenceFor(this.#hub);
@@ -569,7 +609,10 @@ class ChannelSession {
       },
       push: (event: string, payload: unknown) => {
         check(event, payload);
-        return this.#socket.send(eventFrame(name, event, payload));
+        const frame = eventFrame(name, event, payload);
+        // From a join handler: queued behind the join reply.
+        if (this.#hub._holdFrame(this.#socket, room, frame)) return "sent";
+        return this.#socket.send(frame);
       },
       leave: (reason = "") => {
         this.#schedule(() => this.#serverLeave(name, "server", reason));

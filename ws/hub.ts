@@ -62,6 +62,12 @@ export interface WsHubOptions {
 
 type Frame = string | Uint8Array;
 
+interface HeldFrames {
+  frames: Frame[];
+  limit: number;
+  overflowed: boolean;
+}
+
 /** Which room members a send/kick applies to. */
 export interface RoomFilter {
   exceptIds: ReadonlySet<string>;
@@ -195,6 +201,8 @@ export class WsHub {
     WsConnection,
     Map<string, (reason: string) => void>
   >();
+  /** Members whose room frames are queued until `_release` (pending joins). */
+  readonly #held = new Map<WsConnection, Map<string, HeldFrames>>();
   readonly #extensions = new Map<string, (body: unknown) => void>();
   readonly #bridge: TransportBridge<WsTransportMessage>;
   readonly #replicated: boolean;
@@ -250,27 +258,15 @@ export class WsHub {
 
   /** Put a socket in a room (idempotent). Server-side only. */
   join(socket: WsConnection, room: string): void {
-    if (socket.closed) return;
-    let members = this.#rooms.get(room);
-    if (members == null) {
-      members = new Set();
-      this.#rooms.set(room, members);
+    if (this.#addMember(socket, room) && serverOf(socket) != null) {
+      socket.raw.subscribe(this.#topic(room));
     }
-    if (members.has(socket)) return;
-    members.add(socket);
-    let rooms = this.#roomsOf.get(socket);
-    if (rooms == null) {
-      rooms = new Set();
-      this.#roomsOf.set(socket, rooms);
-    }
-    rooms.add(room);
-    if (serverOf(socket) != null) socket.raw.subscribe(this.#topic(room));
-    this.#track(socket);
   }
 
   /** Remove a socket from a room. Does *not* run leave hooks. */
   leave(socket: WsConnection, room: string): void {
     this.#leaveHooks.get(socket)?.delete(room);
+    this.#unhold(socket, room);
     const members = this.#rooms.get(room);
     if (members == null || !members.delete(socket)) return;
     if (members.size === 0) this.#rooms.delete(room);
@@ -280,6 +276,82 @@ export class WsHub {
     if (!socket.closed && serverOf(socket) != null) {
       socket.raw.unsubscribe(this.#topic(room));
     }
+  }
+
+  /**
+   * @internal Make a socket a member of `room` whose frames for the room are
+   * queued instead of sent, until {@link _release}. Channels use this while a
+   * join handler runs, so nothing broadcast meanwhile is missed and nothing
+   * arrives before the join reply. Past `limit` queued frames the hold is
+   * marked overflowed (further frames are dropped). `false` when nothing is
+   * held: the socket is closed or already a (normal) member.
+   */
+  _hold(socket: WsConnection, room: string, limit: number): boolean {
+    if (!this.#addMember(socket, room)) return false;
+    let held = this.#held.get(socket);
+    if (held == null) {
+      held = new Map();
+      this.#held.set(socket, held);
+    }
+    held.set(room, { frames: [], limit, overflowed: false });
+    return true;
+  }
+
+  /**
+   * @internal End a hold: subscribe the socket normally and return the queued
+   * frames, oldest first, for the caller to send. `null` when the socket is no
+   * longer held (it left, was kicked or closed); `"overflow"` when the queue
+   * overflowed, in which case the socket also leaves the room.
+   */
+  _release(socket: WsConnection, room: string): Frame[] | "overflow" | null {
+    const held = this.#held.get(socket)?.get(room);
+    if (held == null) return null;
+    this.#unhold(socket, room);
+    if (held.overflowed) {
+      this.leave(socket, room);
+      return "overflow";
+    }
+    if (serverOf(socket) != null) socket.raw.subscribe(this.#topic(room));
+    return held.frames;
+  }
+
+  /** @internal Queue `frame` if `socket` is held in `room`; `false` otherwise. */
+  _holdFrame(socket: WsConnection, room: string, frame: Frame): boolean {
+    const held = this.#held.get(socket)?.get(room);
+    if (held == null) return false;
+    if (held.overflowed) return true;
+    if (held.frames.length >= held.limit) {
+      held.overflowed = true;
+      held.frames = [];
+    } else {
+      held.frames.push(frame);
+    }
+    return true;
+  }
+
+  /** `true` when the socket was added (not closed, not already a member). */
+  #addMember(socket: WsConnection, room: string): boolean {
+    if (socket.closed) return false;
+    let members = this.#rooms.get(room);
+    if (members == null) {
+      members = new Set();
+      this.#rooms.set(room, members);
+    }
+    if (members.has(socket)) return false;
+    members.add(socket);
+    let rooms = this.#roomsOf.get(socket);
+    if (rooms == null) {
+      rooms = new Set();
+      this.#roomsOf.set(socket, rooms);
+    }
+    rooms.add(room);
+    this.#track(socket);
+    return true;
+  }
+
+  #unhold(socket: WsConnection, room: string): void {
+    const held = this.#held.get(socket);
+    if (held?.delete(room) && held.size === 0) this.#held.delete(socket);
   }
 
   /** Rooms a socket is in. */
@@ -462,6 +534,10 @@ export class WsHub {
       let delivered = 0;
       for (const socket of members) {
         if (socket.closed) continue;
+        if (this._holdFrame(socket, room, frame)) {
+          delivered++;
+          continue;
+        }
         const server = serverOf(socket);
         if (server == null) {
           if (isDelivered(socket.send(frame))) delivered++;
@@ -477,7 +553,8 @@ export class WsHub {
     let delivered = 0;
     for (const socket of [...members]) {
       if (!this.#matches(socket, filter)) continue;
-      if (isDelivered(socket.send(frame))) delivered++;
+      if (this._holdFrame(socket, room, frame)) delivered++;
+      else if (isDelivered(socket.send(frame))) delivered++;
     }
     return delivered;
   }
